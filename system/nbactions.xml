@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<actions>
+        <action>
+            <actionName>run</actionName>
+            <goals>
+                <goal>process-classes</goal>
+                <goal>org.codehaus.mojo:exec-maven-plugin:1.1:exec</goal>
+            </goals>
+            <properties>
+                <exec.args>-Xmx512m -XX:MaxDirectMemorySize=512m -classpath %classpath se.sics.gvod.system.main.SwingMain http://cloud7.sics.se/gvod/topgear.mp4.data</exec.args>
+                <exec.workingdir></exec.workingdir>
+                <exec.executable>java</exec.executable>
+            </properties>
+        </action>
+        <action>
+            <actionName>debug</actionName>
+            <goals>
+                <goal>process-classes</goal>
+                <goal>org.codehaus.mojo:exec-maven-plugin:1.1:exec</goal>
+            </goals>
+            <properties>
+                <exec.args>-Xdebug -Xrunjdwp:transport=dt_socket,server=n,address=${jpda.address} -Xmx512m -XX:MaxDirectMemorySize=512m -classpath %classpath se.sics.gvod.system.main.SwingMain http://cloud7.sics.se/gvod/topgear.mp4.data</exec.args>
+                <exec.workingdir></exec.workingdir>
+                <jpda.listen>true</jpda.listen>
+                <exec.executable>java</exec.executable>
+            </properties>
+        </action>
+        <action>
+            <actionName>profile</actionName>
+            <goals>
+                <goal>process-classes</goal>
+                <goal>org.codehaus.mojo:exec-maven-plugin:1.1.1:exec</goal>
+            </goals>
+            <properties>
+                <exec.args>-Xmx512m -XX:MaxDirectMemorySize=512m -classpath %classpath se.sics.gvod.system.main.SwingMain http://cloud7.sics.se/gvod/topgear.mp4.data</exec.args>
+                <exec.workingdir></exec.workingdir>
+                <profiler.action>profile</profiler.action>
+                <exec.executable>${profiler.java}</exec.executable>
+            </properties>
+        </action>
+        <action>
+            <actionName>CUSTOM-install-offline</actionName>
+            <displayName>install-offline</displayName>
+            <goals>
+                <goal>install</goal>
+            </goals>
+        </action>
+        <action>
+            <actionName>CUSTOM-install-skip</actionName>
+            <displayName>install-skip</displayName>
+            <goals>
+                <goal>install</goal>
+            </goals>
+            <properties>
+                <skipTests>true</skipTests>
+            </properties>
+        </action>
+    </actions>

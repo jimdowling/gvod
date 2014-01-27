@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+
+<shortcuts>
+
+    <skipIfNotSupported/>
+
+    <programGroup defaultName="Ecvideo" location="applications"/>
+
+      <shortcut
+        name="Ecvideo Application"
+        programGroup="yes"
+        desktop="yes"
+        applications="no"
+        startMenu="yes"
+        startup="no"
+        target="$INSTALL_PATH\gvod.jar"
+        commandLine=""
+        description="Ecvideo video-on-deman"
+        iconFile="$INSTALL_PATH\exe.ico"
+        iconIndex="0"
+        initialState="noShow">
+
+         <createForPack name="Base"/>
+
+       </shortcut>
+ 
+
+    <shortcut
+           name="Ecvideo Example App Uninstaller"
+           programGroup="yes"
+           desktop="no"
+           applications="no"
+           startMenu="no"
+           startup="no"
+           target="$INSTALL_PATH\Uninstaller\uninstaller.jar"
+           commandLine=""
+           iconFile="%SystemRoot%\system32\SHELL32.dll"
+           iconIndex="31"
+           description="Uninstall Ecvideo">
+        <createForPack name="main"/>
+    </shortcut>
+
+</shortcuts>

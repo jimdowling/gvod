@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<RDF xmlns="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:em="http://www.mozilla.org/2004/em-rdf#">
+  <Description about="urn:mozilla:install-manifest">
+	  <em:id>gvod@sics.se</em:id>
+	  <em:version>0.1-alpha</em:version>
+	  <em:type>2</em:type>
+
+    <!-- Firefox 4 -->
+    <em:unpack>true</em:unpack>
+    <!-- Firefox -->
+    <em:targetApplication>
+      <Description>
+       	<em:id>{ec8030f7-c20a-464f-9b0e-13a3a9e97384}</em:id>
+      	<em:minVersion>3.5</em:minVersion>
+      	<em:maxVersion>35</em:maxVersion>
+      </Description>
+    </em:targetApplication>		
+
+    <!-- Front End MetaData -->
+    <em:name>gvod</em:name>
+    <em:description>The P2P-based gvod:// video-on-demand protocol.</em:description>
+    <em:creator>Jim Dowling</em:creator>
+    <em:homepageURL>http://www.sics.se/clommunity</em:homepageURL>
+
+<!--
+    <em:iconURL>chrome://snurran.sics.se/gvod/gvod.png</em:iconURL>
+    <em:updateURL>http://snurran.sics.se/gvod/update.rdf</em:updateURL>
+    <em:updateKey>
+    </em:updateKey>
+-->
+
+  </Description>
+</RDF>
+

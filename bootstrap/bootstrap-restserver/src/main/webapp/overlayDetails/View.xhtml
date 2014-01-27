@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:ui="http://java.sun.com/jsf/facelets"
+      xmlns:h="http://java.sun.com/jsf/html"
+      xmlns:f="http://java.sun.com/jsf/core">
+
+    <ui:composition template="/template.xhtml">
+        <ui:define name="title">
+            <h:outputText value="#{bundle.ViewOverlayDetailsTitle}"></h:outputText>
+        </ui:define>
+        <ui:define name="body">
+            <h:panelGroup id="messagePanel" layout="block">
+                <h:messages errorStyle="color: red" infoStyle="color: green" layout="table"/>
+            </h:panelGroup>
+            <h:form>
+                <h:panelGrid columns="2">
+                    <h:outputText value="#{bundle.ViewOverlayDetailsLabel_overlayId}"/>
+                    <h:outputText value="#{overlayDetailsController.selected.overlayId}" title="#{bundle.ViewOverlayDetailsTitle_overlayId}"/>
+                    <h:outputText value="#{bundle.ViewOverlayDetailsLabel_overlayName}"/>
+                    <h:outputText value="#{overlayDetailsController.selected.overlayName}" title="#{bundle.ViewOverlayDetailsTitle_overlayName}"/>
+                    <h:outputText value="#{bundle.ViewOverlayDetailsLabel_overlayDescription}"/>
+                    <h:outputText value="#{overlayDetailsController.selected.overlayDescription}" title="#{bundle.ViewOverlayDetailsTitle_overlayDescription}"/>
+                    <h:outputText value="#{bundle.ViewOverlayDetailsLabel_dateAdded}"/>
+                    <h:outputText value="#{overlayDetailsController.selected.dateAdded}" title="#{bundle.ViewOverlayDetailsTitle_dateAdded}">
+                        <f:convertDateTime pattern="MM/dd/yyyy HH:mm:ss" />
+                    </h:outputText>
+                    <h:outputText value="#{bundle.ViewOverlayDetailsLabel_overlayPicture}"/>
+                    <h:outputText value="#{overlayDetailsController.selected.overlayPicture}" title="#{bundle.ViewOverlayDetailsTitle_overlayPicture}"/>
+                </h:panelGrid>
+                <br />
+                <h:commandLink action="#{overlayDetailsController.destroyAndView}" value="#{bundle.ViewOverlayDetailsDestroyLink}"/>
+                <br />
+                <br />
+                <h:commandLink action="Edit" value="#{bundle.ViewOverlayDetailsEditLink}"/>
+                <br />
+                <h:commandLink action="#{overlayDetailsController.prepareCreate}" value="#{bundle.ViewOverlayDetailsCreateLink}" />
+                <br />
+                <h:commandLink action="#{overlayDetailsController.prepareList}" value="#{bundle.ViewOverlayDetailsShowAllLink}"/>
+                <br />
+                <br />
+                <h:commandLink value="#{bundle.ViewOverlayDetailsIndexLink}" action="/index" immediate="true" />
+
+            </h:form>
+        </ui:define>
+    </ui:composition>
+
+</html>

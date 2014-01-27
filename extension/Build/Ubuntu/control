@@ -1,0 +1,17 @@
+Source: gvodplayer
+Section: web
+Priority: optional
+Maintainer: Jim Dowling <jdowling@sics.se>
+Build-Depends: debhelper (>= 7.0.50~), mozilla-devscripts (>= 0.19~)
+Standards-Version: 3.8.4
+Homepage: http://www.sics.se/~jdowling/gvod
+
+Package: xul-ext-gvodplayer
+Architecture: all
+Depends: ${misc:Depends}, python, python-wxgtk2.8, python-m2crypto, python-apsw
+Recommends: ${xpi:Recommends}
+Provides: ${xpi:Provides}
+Enhances: ${xpi:Enhances}
+Description: Adds the P2P-based gvod:// transfer protocol to Firefox, which enables the use of torrent URLs inside e.g. the video tag.
+ .
+ Homepage: http://www.sics.se/~jdowling/gvod

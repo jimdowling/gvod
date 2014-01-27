@@ -1,0 +1,4 @@
+usr/share/gvod/gvod.jar: 
+Main-Class: se.sics.gvod.system.main.SwingMain
+Debian-Java-Home: /usr/lib/jvm/default-java 
+

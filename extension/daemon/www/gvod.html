@@ -1,0 +1,58 @@
+<html>
+<head>
+<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+<meta content="utf-8" http-equiv="encoding">
+</head>
+<h2>Clommunity Video On Demand</h2>
+
+    <script type="text/javascript" src="jwplayer.js"></script>
+    <script type="text/javascript" src="gvod.js">
+      window.addEventListener("load", function(e) { GvodStatusBar.startup(9999); }, false);
+
+   </script>
+
+    <div id='container'>For some reason, jwplayer doesn't seem to be able to be displayed. Sorry! To install flash for Ubuntu, run: sudo aptitude install flashplugin-installer -y</div>
+
+
+    <video>
+        src="http://127.0.0.1:58026/myvideo.flv/myvideo.flv" 
+        width="640"
+        height="480" 
+        id="container" 
+        poster="showme.png"
+    </video>
+
+    <script type="text/javascript">
+
+
+        jwplayer("container").setup({
+//            autostart: true,
+//            flashplayer: "player.swf",
+            height: 320,
+            width: 640,
+            file:               "http://127.0.0.1:58026/myvideo.flv/myvideo.flv",
+            provider:            "http",
+            plugins: {
+//                "qualitymonitor": {}
+            },
+            modes: [
+  //              { type: "html5" },
+                { type: "flash", src: "player.swf" },
+                { type: "download" }
+            ],            
+            events: {
+                onComplete: function() { 
+                    alert("the video is finished!"); 
+                    jwplayer("container").remove();
+                },
+                onReady: function() { 
+	            this.play(); 
+	        },
+                onVolume: function(event) { 
+	            alert("the new volume is "+event.volume); 
+	        }
+            }
+        });
+    </script>    
+
+</html>

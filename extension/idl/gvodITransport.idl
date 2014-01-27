@@ -1,0 +1,8 @@
+#include "nsISupports.idl"
+
+[scriptable, uuid(811d3790-db4b-11df-937b-0800200c9a66)]
+interface gvodITransport : nsISupports
+{
+  readonly attribute string version;
+};
+

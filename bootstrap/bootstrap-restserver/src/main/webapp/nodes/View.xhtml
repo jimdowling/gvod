@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:ui="http://java.sun.com/jsf/facelets"
+      xmlns:h="http://java.sun.com/jsf/html"
+      xmlns:f="http://java.sun.com/jsf/core">
+
+    <ui:composition template="/template.xhtml">
+        <ui:define name="title">
+            <h:outputText value="#{bundle.ViewNodesTitle}"></h:outputText>
+        </ui:define>
+        <ui:define name="body">
+            <h:panelGroup id="messagePanel" layout="block">
+                <h:messages errorStyle="color: red" infoStyle="color: green" layout="table"/>
+            </h:panelGroup>
+            <h:form>
+                <h:panelGrid columns="2">
+                    <h:outputText value="#{bundle.ViewNodesLabel_id}"/>
+                    <h:outputText value="#{nodesController.selected.id}" title="#{bundle.ViewNodesTitle_id}"/>
+                    <h:outputText value="#{bundle.ViewNodesLabel_ip}"/>
+                    <h:outputText value="#{nodesController.selected.ip}" title="#{bundle.ViewNodesTitle_ip}"/>
+                    <h:outputText value="#{bundle.ViewNodesLabel_port}"/>
+                    <h:outputText value="#{nodesController.selected.port}" title="#{bundle.ViewNodesTitle_port}"/>
+                    <h:outputText value="#{bundle.ViewNodesLabel_asn}"/>
+                    <h:outputText value="#{nodesController.selected.asn}" title="#{bundle.ViewNodesTitle_asn}"/>
+                    <h:outputText value="#{bundle.ViewNodesLabel_country}"/>
+                    <h:outputText value="#{nodesController.selected.country}" title="#{bundle.ViewNodesTitle_country}"/>
+                    <h:outputText value="#{bundle.ViewNodesLabel_natType}"/>
+                    <h:outputText value="#{nodesController.selected.natType}" title="#{bundle.ViewNodesTitle_natType}"/>
+                    <h:outputText value="#{bundle.ViewNodesLabel_open}"/>
+                    <h:outputText value="#{nodesController.selected.open}" title="#{bundle.ViewNodesTitle_open}"/>
+                    <h:outputText value="#{bundle.ViewNodesLabel_mtu}"/>
+                    <h:outputText value="#{nodesController.selected.mtu}" title="#{bundle.ViewNodesTitle_mtu}"/>
+                    <h:outputText value="#{bundle.ViewNodesLabel_lastPing}"/>
+                    <h:outputText value="#{nodesController.selected.lastPing}" title="#{bundle.ViewNodesTitle_lastPing}">
+                        <f:convertDateTime pattern="MM/dd/yyyy HH:mm:ss" />
+                    </h:outputText>
+                    <h:outputText value="#{bundle.ViewNodesLabel_joined}"/>
+                    <h:outputText value="#{nodesController.selected.joined}" title="#{bundle.ViewNodesTitle_joined}">
+                        <f:convertDateTime pattern="MM/dd/yyyy HH:mm:ss" />
+                    </h:outputText>
+                </h:panelGrid>
+                <br />
+                <h:commandLink action="#{nodesController.destroyAndView}" value="#{bundle.ViewNodesDestroyLink}"/>
+                <br />
+                <br />
+                <h:commandLink action="Edit" value="#{bundle.ViewNodesEditLink}"/>
+                <br />
+                <h:commandLink action="#{nodesController.prepareCreate}" value="#{bundle.ViewNodesCreateLink}" />
+                <br />
+                <h:commandLink action="#{nodesController.prepareList}" value="#{bundle.ViewNodesShowAllLink}"/>
+                <br />
+                <br />
+                <h:commandLink value="#{bundle.ViewNodesIndexLink}" action="/index" immediate="true" />
+
+            </h:form>
+        </ui:define>
+    </ui:composition>
+
+</html>

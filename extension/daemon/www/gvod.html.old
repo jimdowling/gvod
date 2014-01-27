@@ -1,0 +1,29 @@
+<html>
+    <script type="text/javascript" src="swfobject-2.2.js"></script>
+
+    <div id='mediaplayer'>For some reason, the mediaplayer doesn't seem to be able to be displayed. Sorry!</div>
+
+    <script type="text/javascript">
+        var flashvars = {
+            'file':               'http://127.0.0.1:58026/myvideo.flv/myvideo.flv',
+            'provider':            'http'
+        };
+
+        var params = {
+            'allowfullscreen':    'true',
+            'allowscriptaccess':  'always',
+            'bgcolor':            '#ffffff',
+            plugins: {
+                "qualitymonitor": {}
+            }                  
+        };
+
+        var attributes = {
+            'id':                 'jwplayer',
+            'name':               'jwplayer'
+        };
+
+        swfobject.embedSWF('player.swf', 'mediaplayer', '640', '320', '9', 'false', flashvars, params, attributes);
+    </script>
+
+</html>

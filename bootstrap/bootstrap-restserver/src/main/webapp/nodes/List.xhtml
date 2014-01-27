@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:ui="http://java.sun.com/jsf/facelets"
+      xmlns:h="http://java.sun.com/jsf/html"
+      xmlns:f="http://java.sun.com/jsf/core">
+
+    <ui:composition template="/template.xhtml">
+        <ui:define name="title">
+            <h:outputText value="#{bundle.ListNodesTitle}"></h:outputText>
+        </ui:define>
+        <ui:define name="body">
+            <h:form styleClass="jsfcrud_list_form">
+                <h:panelGroup id="messagePanel" layout="block">
+                    <h:messages errorStyle="color: red" infoStyle="color: green" layout="table"/>
+                </h:panelGroup>
+                <h:outputText escape="false" value="#{bundle.ListNodesEmpty}" rendered="#{nodesController.items.rowCount == 0}"/>
+                <h:panelGroup rendered="#{nodesController.items.rowCount > 0}">
+                    <h:outputText value="#{nodesController.pagination.pageFirstItem + 1}..#{nodesController.pagination.pageLastItem + 1}/#{nodesController.pagination.itemsCount}"/>&nbsp;
+                    <h:commandLink action="#{nodesController.previous}" value="#{bundle.Previous} #{nodesController.pagination.pageSize}" rendered="#{nodesController.pagination.hasPreviousPage}"/>&nbsp;
+                    <h:commandLink action="#{nodesController.next}" value="#{bundle.Next} #{nodesController.pagination.pageSize}" rendered="#{nodesController.pagination.hasNextPage}"/>&nbsp;
+                    <h:dataTable value="#{nodesController.items}" var="item" border="0" cellpadding="2" cellspacing="0" rowClasses="jsfcrud_odd_row,jsfcrud_even_row" rules="all" style="border:solid 1px">
+                        <h:column>
+                            <f:facet name="header">
+                                <h:outputText value="#{bundle.ListNodesTitle_id}"/>
+                            </f:facet>
+                            <h:outputText value="#{item.id}"/>
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">
+                                <h:outputText value="#{bundle.ListNodesTitle_ip}"/>
+                            </f:facet>
+                            <h:outputText value="#{item.ip}"/>
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">
+                                <h:outputText value="#{bundle.ListNodesTitle_port}"/>
+                            </f:facet>
+                            <h:outputText value="#{item.port}"/>
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">
+                                <h:outputText value="#{bundle.ListNodesTitle_asn}"/>
+                            </f:facet>
+                            <h:outputText value="#{item.asn}"/>
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">
+                                <h:outputText value="#{bundle.ListNodesTitle_country}"/>
+                            </f:facet>
+                            <h:outputText value="#{item.country}"/>
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">
+                                <h:outputText value="#{bundle.ListNodesTitle_natType}"/>
+                            </f:facet>
+                            <h:outputText value="#{item.natType}"/>
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">
+                                <h:outputText value="#{bundle.ListNodesTitle_open}"/>
+                            </f:facet>
+                            <h:outputText value="#{item.open}"/>
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">
+                                <h:outputText value="#{bundle.ListNodesTitle_mtu}"/>
+                            </f:facet>
+                            <h:outputText value="#{item.mtu}"/>
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">
+                                <h:outputText value="#{bundle.ListNodesTitle_lastPing}"/>
+                            </f:facet>
+                            <h:outputText value="#{item.lastPing}">
+                                <f:convertDateTime pattern="MM/dd/yyyy HH:mm:ss" />
+                            </h:outputText>
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">
+                                <h:outputText value="#{bundle.ListNodesTitle_joined}"/>
+                            </f:facet>
+                            <h:outputText value="#{item.joined}">
+                                <f:convertDateTime pattern="MM/dd/yyyy HH:mm:ss" />
+                            </h:outputText>
+                        </h:column>
+                        <h:column>
+                            <f:facet name="header">
+                                <h:outputText value="&nbsp;"/>
+                            </f:facet>
+                            <h:commandLink action="#{nodesController.prepareView}" value="#{bundle.ListNodesViewLink}"/>
+                            <h:outputText value=" "/>
+                            <h:commandLink action="#{nodesController.prepareEdit}" value="#{bundle.ListNodesEditLink}"/>
+                            <h:outputText value=" "/>
+                            <h:commandLink action="#{nodesController.destroy}" value="#{bundle.ListNodesDestroyLink}"/>
+                        </h:column>
+                    </h:dataTable>
+                </h:panelGroup>
+                <br />
+                <h:commandLink action="#{nodesController.prepareCreate}" value="#{bundle.ListNodesCreateLink}"/>
+                <br />
+                <br />
+                <h:commandLink value="#{bundle.ListNodesIndexLink}" action="/index" immediate="true" />
+            </h:form>
+        </ui:define>
+    </ui:composition>
+
+</html>

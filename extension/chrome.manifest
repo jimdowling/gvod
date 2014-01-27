@@ -1,0 +1,24 @@
+content     gvod content/
+content     gvod content/contentaccessible=yes
+skin        gvod gvod/1.0  skin/
+
+overlay	chrome://browser/content/browser.xul chrome://gvod/content/gvod_status_bar.xul
+
+locale	gvod	en-US	locale/en-US/
+
+component {1df43930-d7a3-11df-937b-0800200c9a66} components/GvodProtocolHandler.js
+contract @mozilla.org/network/protocol;1?name=gvod {1df43930-d7a3-11df-937b-0800200c9a66}
+category profile-after-change GvodProtocol @mozilla.org/network/protocol;1?name=gvod
+
+
+component {d61ba3d0-db4b-11df-937b-0800200c9a66} components/GvodTransport.js
+contract @sics.se/gvod/gvodTransport;1  {c789a100-db4b-11df-937b-0800200c9a66}
+category profile-after-change GvodTransport @sics.se/gvod/gvodTransport;1
+
+component {c789a100-db4b-11df-937b-0800200c9a66} components/GvodChannel.js
+contract @sics.se/gvod/channel;1  {c789a100-db4b-11df-937b-0800200c9a66}
+category profile-after-change GvodChannel @sics.se/gvod/channel;1
+
+
+interfaces components/gvodIChannel.xpt
+interfaces components/gvodITransport.xpt

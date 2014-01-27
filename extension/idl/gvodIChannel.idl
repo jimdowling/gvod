@@ -1,0 +1,9 @@
+#include "nsISupports.idl"
+
+[scriptable, uuid(bae3ddd0-db4b-11df-937b-0800200c9a66)]
+interface gvodIChannel : nsISupports
+{
+  void setTorrentUrl(in AString url);
+  void setPlayer(in AString player);
+};
+

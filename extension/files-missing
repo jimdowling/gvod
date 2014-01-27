@@ -1,0 +1,6 @@
+Build             components         gvodITransport.idl   package.sh
+build.sh          daemon             gvodITransport.idl~  skin
+chrome            defaults           install.rdf          TestProtocol.js
+chrome.manifest   gvodIChannel.idl   install.rdf~
+chrome.manifest~  gvodIChannel.idl~  locale
+

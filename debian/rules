@@ -1,0 +1,8 @@
+#!/usr/bin/make -f
+
+export JAVA_HOME=/usr/lib/jvm/default-java
+export CLASSPATH=/usr/share/java/gvod.jar
+
+%:
+	dh $@ --with javahelper 
+

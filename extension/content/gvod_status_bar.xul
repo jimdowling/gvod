@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+<?xml-stylesheet href="chrome://gvod/skin/skin.css" type="text/css"?>
+-->
+
+<!DOCTYPE gvod SYSTEM "chrome://gvod/locale/translations.dtd">
+<overlay id="gvod_status_bar_overlay"
+  xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+  xmlns:HTML="http://www.w3.org/1999/xhtml"
+>
+
+<script type="application/javascript" src="chrome://gvod/content/gvod_status_bar.js"/>
+    <statusbar id="status-bar">
+	    <statusbarpanel id="gvodstatusbar" label="Gvod"
+	        class="statusbarpanel-iconic-text"
+	        src="chrome://gvod/skin/gvod.png"
+		tooltiptext="&runGvod;"
+		onclick="GvodStatusBar.startBG()"
+	    />
+    </statusbar>
+</overlay>

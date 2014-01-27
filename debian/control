@@ -1,0 +1,14 @@
+Source: gvod
+Package: gvod
+Section: web
+Maintainer: Jim Dowling <jdowling@sics.se>
+Version: 0.1
+Priority: optional
+Architecture: all
+Depends: ${java:Depends}
+Description: A peer-to-peer video-on-demand application written in Java.
+Build-Depends: debhelper (>= 5), default-jdk,
+               libitext-java, javahelper
+Standards-Version: 3.7.3
+
+   

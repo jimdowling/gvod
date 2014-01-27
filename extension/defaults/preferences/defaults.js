@@ -1,0 +1,9 @@
+pref("extensions.gvod.autorun", true);
+pref("gvod.video.dir", "");
+pref("gvod.torrent.dir", "");
+pref("gvod.ip", "127.0.0.1");
+pref("gvod.control.port", 58024);
+pref("gvod.media.port", 58026);
+pref("gvod.time.wait.java", 1000);
+pref("gvod.logging.enabled", true);
+pref("gvod.jwplayer", true);

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:ui="http://java.sun.com/jsf/facelets"
+      xmlns:h="http://java.sun.com/jsf/html"
+      xmlns:f="http://java.sun.com/jsf/core">
+
+    <ui:composition template="/template.xhtml">
+        <ui:define name="title">
+            <h:outputText value="#{bundle.CreateNodesTitle}"></h:outputText>
+        </ui:define>
+        <ui:define name="body">
+            <h:panelGroup id="messagePanel" layout="block">
+                <h:messages errorStyle="color: red" infoStyle="color: green" layout="table"/>
+            </h:panelGroup>
+            <h:form>
+                <h:panelGrid columns="2">
+                    <h:outputLabel value="#{bundle.CreateNodesLabel_id}" for="id" />
+                    <h:inputText id="id" value="#{nodesController.selected.id}" title="#{bundle.CreateNodesTitle_id}" required="true" requiredMessage="#{bundle.CreateNodesRequiredMessage_id}"/>
+                    <h:outputLabel value="#{bundle.CreateNodesLabel_ip}" for="ip" />
+                    <h:inputText id="ip" value="#{nodesController.selected.ip}" title="#{bundle.CreateNodesTitle_ip}" required="true" requiredMessage="#{bundle.CreateNodesRequiredMessage_ip}"/>
+                    <h:outputLabel value="#{bundle.CreateNodesLabel_port}" for="port" />
+                    <h:inputText id="port" value="#{nodesController.selected.port}" title="#{bundle.CreateNodesTitle_port}" required="true" requiredMessage="#{bundle.CreateNodesRequiredMessage_port}"/>
+                    <h:outputLabel value="#{bundle.CreateNodesLabel_asn}" for="asn" />
+                    <h:inputText id="asn" value="#{nodesController.selected.asn}" title="#{bundle.CreateNodesTitle_asn}" required="true" requiredMessage="#{bundle.CreateNodesRequiredMessage_asn}"/>
+                    <h:outputLabel value="#{bundle.CreateNodesLabel_country}" for="country" />
+                    <h:inputText id="country" value="#{nodesController.selected.country}" title="#{bundle.CreateNodesTitle_country}" required="true" requiredMessage="#{bundle.CreateNodesRequiredMessage_country}"/>
+                    <h:outputLabel value="#{bundle.CreateNodesLabel_natType}" for="natType" />
+                    <h:inputText id="natType" value="#{nodesController.selected.natType}" title="#{bundle.CreateNodesTitle_natType}" required="true" requiredMessage="#{bundle.CreateNodesRequiredMessage_natType}"/>
+                    <h:outputLabel value="#{bundle.CreateNodesLabel_open}" for="open" />
+                    <h:inputText id="open" value="#{nodesController.selected.open}" title="#{bundle.CreateNodesTitle_open}" required="true" requiredMessage="#{bundle.CreateNodesRequiredMessage_open}"/>
+                    <h:outputLabel value="#{bundle.CreateNodesLabel_mtu}" for="mtu" />
+                    <h:inputText id="mtu" value="#{nodesController.selected.mtu}" title="#{bundle.CreateNodesTitle_mtu}" required="true" requiredMessage="#{bundle.CreateNodesRequiredMessage_mtu}"/>
+                    <h:outputLabel value="#{bundle.CreateNodesLabel_lastPing}" for="lastPing" />
+                    <h:inputText id="lastPing" value="#{nodesController.selected.lastPing}" title="#{bundle.CreateNodesTitle_lastPing}" required="true" requiredMessage="#{bundle.CreateNodesRequiredMessage_lastPing}">
+                        <f:convertDateTime pattern="MM/dd/yyyy HH:mm:ss" />
+                    </h:inputText>
+                    <h:outputLabel value="#{bundle.CreateNodesLabel_joined}" for="joined" />
+                    <h:inputText id="joined" value="#{nodesController.selected.joined}" title="#{bundle.CreateNodesTitle_joined}" required="true" requiredMessage="#{bundle.CreateNodesRequiredMessage_joined}">
+                        <f:convertDateTime pattern="MM/dd/yyyy HH:mm:ss" />
+                    </h:inputText>
+                </h:panelGrid>
+                <br />
+                <h:commandLink action="#{nodesController.create}" value="#{bundle.CreateNodesSaveLink}" />
+                <br />
+                <br />
+                <h:commandLink action="#{nodesController.prepareList}" value="#{bundle.CreateNodesShowAllLink}" immediate="true"/>
+                <br />
+                <br />
+                <h:commandLink value="#{bundle.CreateNodesIndexLink}" action="/index" immediate="true" />
+            </h:form>
+        </ui:define>
+    </ui:composition>
+
+</html>

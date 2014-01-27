@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<installation version="1.0">
+
+    <info>
+        <appname>Ecvideo</appname>
+        <appversion>0.1</appversion>
+        <uninstaller write="yes" />
+        <javaversion>1.6</javaversion>
+        <pack200 />
+        <url>http://www.ecvideo.com</url>
+        <authors>
+            <author name="Jim Dowling" email="jdowling@sics.se"/> 
+            <author name="Salman Niazi" email="salman@sics.se"/>
+            <author name="Gautier Berthou" email="gautier@sics.se"/>
+        </authors>
+        <requiresjdk>no</requiresjdk>
+<!--         <summarylogfilepath>$INSTALL_PATH/installinfo/Summary.htm</summarylogfilepath>-->
+<!--        <run-privileged condition="izpack.windowsinstall.vista|izpack.macinstall"/>-->
+    </info>
+    
+    <variables>
+        <variable name="app-version" value="0.1"/>
+        <variable name="released-on" value="08/07/2013"/>
+        <variable name="desktopshortcutcheckboxenabled" value="true"/>
+    </variables>    
+
+    <guiprefs width="660" height="480" resizable="yes">
+        <laf name="looks">
+            <param name="variant" value="windows" />
+            <os family="windows" />
+        </laf>
+        <modifier key="allXGap" value="0"/>
+        <modifier key="allYGap" value="0"/>
+        <modifier key="useHeadingPanel" value="yes"/>
+        <modifier key="useButtonIcons" value="yes"/>
+        <modifier key="useHeadingForSummary" value="yes"/>
+        <modifier key="headingImageOnLeft" value="yes"/>
+        <modifier key="headingLineCount" value="1"/>
+        <modifier key="headingFontSize" value="1.5"/>
+        <modifier key="headingBackgroundColor" value="0x00ffffff"/>
+        <modifier key="headingPanelCounter" value="text"/>
+        <modifier key="headingPanelCounterPos" value="inHeading"/>
+    </guiprefs>
+
+    <locale>
+        <langpack iso3="eng" />
+    </locale>
+    
+    
+    <resources>
+        <res src="shortcutSpec.xml" id="shortcutSpec.xml"/>
+        <res id="HTMLLicencePanel.licence" src="license.html"/>
+<!--        <res id="LicencePanel.licence" src="Licence.txt"/>-->
+        <res id="InfoPanel.info" src="Readme.txt"/>
+    </resources>    
+
+    <panels>
+        <panel classname="HelloPanel" />
+        <panel classname="HTMLLicencePanel"/>
+<!--        <panel classname="LicencePanel"/>-->
+<!--        <panel classname="windowsPlugins" />
+        <panel classname="linuxPlugins" />-->
+        <panel classname="SimpleFinishPanel"/>
+<!--        <panel classname="SimpleFinishPanel" jar="gvod.jar"/>-->
+    </panels>
+
+    <packs>
+        <pack name="main" required="yes">
+            <description>Ecvideo Installation</description>
+            <file src="Readme.txt" targetdir="$INSTALL_PATH"/>
+            <file src="Licence.txt" targetdir="$INSTALL_PATH"/>
+            <file src="exe.ico" targetdir="$INSTALL_PATH"/>            
+            <file src="gvod.jar" targetdir="$INSTALL_PATH"/>
+        </pack>
+<!--        <pack name="windowsPlugins" required="yes" os="izpack.windowsinstall">
+            <description>Plugins for browsers in windows</description>
+        </pack>
+        <pack name="linuxPlugins" required="yes" os="izpack.linuxinstall">
+            <description>Plugins for browsers in linux</description>
+        </pack>-->
+    </packs>
+
+</installation>

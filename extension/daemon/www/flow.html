@@ -1,0 +1,62 @@
+
+<!DOCTYPE html 
+     PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"> 
+  
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en"> 
+ 
+<head> 
+ 	
+	<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" /> 
+		
+	<link rel="stylesheet" type="text/css" href="global-0.25.css" /> 
+	
+	<script type="text/javascript" src="flowplayer-3.2.4.min.js"></script>	
+	<script type="text/javascript" src="jquery.min.js"></script> 
+	<script type="text/javascript"  src="global-0.50.js"></script>	
+	
+ 
+</head> 
+ 
+<body id="plugins_bwcheck"> 
+ 
+ 
+ 
+<div id="wrap">	
+			
+		
+		<div id="content"> 
+		
+ 
+<!-- setup player container named "lighty" --> 
+<a class="player" id="lighty"> 
+	<img src="showme.png"  /> 
+</a> 
+ 
+ 
+ 
+<script language='javascript'> 
+$f("lighty", "flowplayer-3.2.5.swf", {
+ 
+	// configure clip to use "lighthttpd" plugin for providing video data
+	clip: {
+		url: 'http://127.0.0.1:58026/myvideo.flv/myvideo.flv',
+		provider: 'lighttpd'
+	},
+ 
+	// streaming plugins are configured normally under the plugins node
+	plugins: {
+		lighttpd: {
+			url: 'flowplayer.pseudostreaming-3.2.5.swf',
+                       queryString: escape('start=${start}')
+		}
+	}
+});
+</script>
+
+ 
+		</div>  
+		<div class="clear"></div> 
+	</div> 
+</body> 
+</html>

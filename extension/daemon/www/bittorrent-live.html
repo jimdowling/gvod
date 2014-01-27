@@ -1,0 +1,35 @@
+<div class="player_container">
+
+    <div class="video_container">
+        
+        <object id="player" classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" width="640" height="480">
+          <param name="movie" value="watcher.swf" />
+          <param name="quality" value="high" />
+          <param name="bgcolor" value="#869ca7" />
+          <param name="wmode" value="transparent" />
+          <param name="allowScriptAccess" value="always" />
+          <!--[if !IE]>-->
+          <object type="application/x-shockwave-flash" width="640" height="480">
+          <!--<![endif]-->
+          <!--[if !IE]>-->
+          </object>
+          <!--<![endif]-->
+        </object>
+        
+        <div id="upgrade_flash">
+            <h4>We require Flash Player version 11 to view the live Stream. Please <a href="http://get.adobe.com/flashplayer/">upgrade here</a>.</h4>
+        </div>
+
+    </div>
+
+    <div class="player_controls">
+        
+        <div class="current_viewers">
+            <strong id="current_viewers">0</strong> Watching
+            /
+            <strong id="total_viewers">0</strong> Total Views
+        </div>
+
+    </div>
+    
+</div>

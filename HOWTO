@@ -1,0 +1,16 @@
+How to build/run gvod.
+
+Authors: Gautier Berthou and Jim Dowling
+
+1. Start the bootstrap/monitor servers:
+
+./gvod/.bootstrap 8070 8071
+
+2. Create a torrent file using GUI
+./gvod/.gvod
+
+
+3. Use the gui to create a torrent file and select the video file.
+
+
+

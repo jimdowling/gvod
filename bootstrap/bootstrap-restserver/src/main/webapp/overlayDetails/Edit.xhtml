@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:ui="http://java.sun.com/jsf/facelets"
+      xmlns:h="http://java.sun.com/jsf/html"
+      xmlns:f="http://java.sun.com/jsf/core">
+
+    <ui:composition template="/template.xhtml">
+        <ui:define name="title">
+            <h:outputText value="#{bundle.EditOverlayDetailsTitle}"></h:outputText>
+        </ui:define>
+        <ui:define name="body">
+            <h:panelGroup id="messagePanel" layout="block">
+                <h:messages errorStyle="color: red" infoStyle="color: green" layout="table"/>
+            </h:panelGroup>
+            <h:form>
+                <h:panelGrid columns="2">
+                    <h:outputLabel value="#{bundle.EditOverlayDetailsLabel_overlayId}" for="overlayId" />
+                    <h:inputText id="overlayId" value="#{overlayDetailsController.selected.overlayId}" title="#{bundle.EditOverlayDetailsTitle_overlayId}" required="true" requiredMessage="#{bundle.EditOverlayDetailsRequiredMessage_overlayId}"/>
+                    <h:outputLabel value="#{bundle.EditOverlayDetailsLabel_overlayName}" for="overlayName" />
+                    <h:inputText id="overlayName" value="#{overlayDetailsController.selected.overlayName}" title="#{bundle.EditOverlayDetailsTitle_overlayName}" required="true" requiredMessage="#{bundle.EditOverlayDetailsRequiredMessage_overlayName}"/>
+                    <h:outputLabel value="#{bundle.EditOverlayDetailsLabel_overlayDescription}" for="overlayDescription" />
+                    <h:inputText id="overlayDescription" value="#{overlayDetailsController.selected.overlayDescription}" title="#{bundle.EditOverlayDetailsTitle_overlayDescription}" />
+                    <h:outputLabel value="#{bundle.EditOverlayDetailsLabel_dateAdded}" for="dateAdded" />
+                    <h:inputText id="dateAdded" value="#{overlayDetailsController.selected.dateAdded}" title="#{bundle.EditOverlayDetailsTitle_dateAdded}" required="true" requiredMessage="#{bundle.EditOverlayDetailsRequiredMessage_dateAdded}">
+                        <f:convertDateTime pattern="MM/dd/yyyy HH:mm:ss" />
+                    </h:inputText>
+                    <h:outputLabel value="#{bundle.EditOverlayDetailsLabel_overlayPicture}" for="overlayPicture" />
+                    <h:inputTextarea rows="4" cols="30" id="overlayPicture" value="#{overlayDetailsController.selected.overlayPicture}" title="#{bundle.EditOverlayDetailsTitle_overlayPicture}" />
+                </h:panelGrid>
+                <h:commandLink action="#{overlayDetailsController.update}" value="#{bundle.EditOverlayDetailsSaveLink}"/>
+                <br />
+                <br />
+                <h:commandLink action="View" value="#{bundle.EditOverlayDetailsViewLink}" immediate="true"/>
+                <br />
+                <h:commandLink action="#{overlayDetailsController.prepareList}" value="#{bundle.EditOverlayDetailsShowAllLink}" immediate="true"/>
+                <br />
+                <br />
+                <h:commandLink value="#{bundle.EditOverlayDetailsIndexLink}" action="/index" immediate="true" />
+            </h:form>
+        </ui:define>
+    </ui:composition>
+
+</html>

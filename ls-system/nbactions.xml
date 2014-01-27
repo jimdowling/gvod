@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<actions>
+        <action>
+            <actionName>run</actionName>
+            <goals>
+                <goal>process-classes</goal>
+                <goal>org.codehaus.mojo:exec-maven-plugin:1.2:exec</goal>
+            </goals>
+            <properties>
+                <exec.args>-classpath %classpath se.sics.gvod.ls.httpclient.HTTPStreamHandler</exec.args>
+                <exec.executable>java</exec.executable>
+                <exec.classpathScope>runtime</exec.classpathScope>
+            </properties>
+        </action>
+        <action>
+            <actionName>CUSTOM-install-skip</actionName>
+            <displayName>install-skip</displayName>
+            <goals>
+                <goal>install</goal>
+            </goals>
+            <properties>
+                <skipTests>true</skipTests>
+            </properties>
+        </action>
+        <action>
+            <actionName>CUSTOM-build-offline</actionName>
+            <displayName>build-offline</displayName>
+            <goals>
+                <goal>install</goal>
+            </goals>
+        </action>
+    </actions>

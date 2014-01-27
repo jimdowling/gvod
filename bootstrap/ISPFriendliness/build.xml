@@ -1,0 +1,10 @@
+<!--
+	Author: Sameh El-Ansary
+-->
+<project>
+	<import file="../scripts/ant-support/build-common.xml"/>
+	<!--
+	<property name="run.class" value="se.peertv.server.Main"/>
+	-->
+</project>
+
