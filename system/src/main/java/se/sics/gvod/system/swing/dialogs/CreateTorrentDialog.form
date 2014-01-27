@@ -58,9 +58,9 @@
               <Component id="optionalPanel" min="-2" max="-2" attributes="0"/>
               <EmptySpace type="separate" max="-2" attributes="0"/>
               <Component id="bootstrapPanel" min="-2" max="-2" attributes="0"/>
-              <EmptySpace pref="59" max="32767" attributes="0"/>
+              <EmptySpace pref="60" max="32767" attributes="0"/>
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Component id="streamingConversionProgressBar" pref="31" max="32767" attributes="0"/>
+                  <Component id="streamingConversionProgressBar" pref="33" max="32767" attributes="0"/>
                   <Component id="jLabel2" min="-2" max="-2" attributes="0"/>
               </Group>
               <EmptySpace min="-2" pref="34" max="-2" attributes="0"/>
@@ -192,16 +192,17 @@
         <Component class="javax.swing.JComboBox" name="videoWidthComboBox">
           <Properties>
             <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.editors2.ComboBoxModelEditor">
-              <StringArray count="9">
+              <StringArray count="10">
                 <StringItem index="0" value="320x240"/>
                 <StringItem index="1" value="480x360"/>
-                <StringItem index="2" value="640x480"/>
-                <StringItem index="3" value="800x600"/>
-                <StringItem index="4" value="1024x768"/>
-                <StringItem index="5" value="1280x768"/>
-                <StringItem index="6" value="1280x1080"/>
-                <StringItem index="7" value="1600x1080"/>
-                <StringItem index="8" value="1920x1080"/>
+                <StringItem index="2" value="640x320"/>
+                <StringItem index="3" value="640x480"/>
+                <StringItem index="4" value="800x600"/>
+                <StringItem index="5" value="1024x768"/>
+                <StringItem index="6" value="1280x768"/>
+                <StringItem index="7" value="1280x1080"/>
+                <StringItem index="8" value="1600x1080"/>
+                <StringItem index="9" value="1920x1080"/>
               </StringArray>
             </Property>
           </Properties>

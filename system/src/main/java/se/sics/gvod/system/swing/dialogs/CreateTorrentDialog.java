@@ -147,7 +147,7 @@ public class CreateTorrentDialog extends javax.swing.JDialog {
 
         jLabel1.setText("Video size:");
 
-        videoWidthComboBox.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "320x240", "480x360", "640x480", "800x600", "1024x768", "1280x768", "1280x1080", "1600x1080", "1920x1080" }));
+        videoWidthComboBox.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "320x240", "480x360", "640x320", "640x480", "800x600", "1024x768", "1280x768", "1280x1080", "1600x1080", "1920x1080" }));
 
         javax.swing.GroupLayout torrentFilePanelLayout = new javax.swing.GroupLayout(torrentFilePanel);
         torrentFilePanel.setLayout(torrentFilePanelLayout);
@@ -294,9 +294,9 @@ public class CreateTorrentDialog extends javax.swing.JDialog {
                 .addComponent(optionalPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addComponent(bootstrapPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 59, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 60, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(streamingConversionProgressBar, javax.swing.GroupLayout.DEFAULT_SIZE, 31, Short.MAX_VALUE)
+                    .addComponent(streamingConversionProgressBar, javax.swing.GroupLayout.DEFAULT_SIZE, 33, Short.MAX_VALUE)
                     .addComponent(jLabel2))
                 .addGap(34, 34, 34)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)

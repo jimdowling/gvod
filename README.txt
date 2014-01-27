@@ -27,11 +27,4 @@ export MAVEN_OPTS="-Xmx2048m -XX:MaxPermSize=512m"
 mvn install
 
 
-# To start the bootstrap server
-cd gvod-bootstrap/gvod-bootstrap-server
-mvn assembly:assembly -DskipTests
-nohup java -jar target/gvod-bootstrap-server-1.0-SNAPSHOT-jar-with-dependencies.jar -jdbcurl jdbc:mysql://localhost/gvod -user mysql -pwd MY_PASSWORD &
-
-
-# Start a client:
 

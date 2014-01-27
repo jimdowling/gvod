@@ -63,16 +63,27 @@ public class StorageFcByteBuf implements Storage {
 
     /* create storage from infos about the path
      */
-    public StorageFcByteBuf(MetaInfoExec metainfo, String baseDir) throws IOException {
+    public StorageFcByteBuf(MetaInfoExec metainfo, String baseDir, boolean seeding) throws IOException {
         this.metainfo = metainfo;
         this.baseDir = baseDir;
-        needed = metainfo.getnbSubpieces();
         nbSubpieces = metainfo.getnbSubpieces();
-        bitfield = new BitField(needed);
+        bitfield = new BitField(metainfo.getnbSubpieces());
+        if (!seeding) {
+            needed = metainfo.getnbSubpieces();
+        } else {
+            needed = 0;
+            for (int i = 0; i < (nbSubpieces / BitField.NUM_SUBPIECES_PER_PIECE) + 1; i++) {
+                for (int j = 0; j < metainfo.getPieceNbSubPieces(i); j++) {
+                    bitfield.set(i * BitField.NUM_SUBPIECES_PER_PIECE + j, true);
+                }
+            }
+        }
         this.length = metainfo.getLength();
     }
 
-    /* create storage from the path itself
+    /* 
+     * SEEDER calls this constructor!
+     * create storage from the path itself
      */
     public StorageFcByteBuf(File videoFile, int width, int height,
             Address bootstrapServerAddress,
@@ -107,7 +118,7 @@ public class StorageFcByteBuf implements Storage {
             raf = new RandomAccessFile(videoFile, "rw");
         }
     }
-    
+
     private void ftruncate() throws IOException {
         raf.setLength(this.length);
     }
@@ -383,14 +394,14 @@ public class StorageFcByteBuf implements Storage {
     }
 
     private FileChannel getFileChannel() {
-        FileChannel fc  = raf.getChannel();
+        FileChannel fc = raf.getChannel();
         if (!fc.isOpen()) {
             throw new IllegalStateException("Couldn't read piece from file, as it was closed: "
                     + getMetaInfo().getName());
-        }        
+        }
         return fc;
     }
-    
+
     @Override
     public boolean putSubpiece(int piece, byte[] bs) throws IOException {
         // First check if the piece is correct.
@@ -406,7 +417,7 @@ public class StorageFcByteBuf implements Storage {
         }
         assert (this.length != 0);
         int start = piece * metainfo.getSubpieceSize(0);
-        FileChannel fc = getFileChannel(); 
+        FileChannel fc = getFileChannel();
 
         long raflen = this.length;
         while (start > raflen) {

@@ -1,22 +1,22 @@
 /**
  * This file is part of the Kompics P2P Framework.
  *
- * Copyright (C) 2009 Swedish Institute of Computer Science (SICS)
- * Copyright (C) 2009 Royal Institute of Technology (KTH)
+ * Copyright (C) 2009 Swedish Institute of Computer Science (SICS) Copyright (C)
+ * 2009 Royal Institute of Technology (KTH)
  *
- * Kompics is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * Kompics is free software; you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 2 of the License, or (at your option) any later
+ * version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+ * Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 package se.sics.gvod.system.storage;
 
@@ -41,7 +41,7 @@ import se.sics.gvod.system.util.FlvHandler;
 import se.sics.gvod.address.Address;
 
 /**
- * 
+ *
  */
 public class StorageMemMapWholeFile implements Storage {
 
@@ -59,17 +59,26 @@ public class StorageMemMapWholeFile implements Storage {
 
     /* create storage from infos about the path
      */
-    public StorageMemMapWholeFile(MetaInfoExec metainfo, String baseDir) throws IOException {
+    public StorageMemMapWholeFile(MetaInfoExec metainfo, String baseDir, boolean seeding) throws IOException {
         this.metainfo = metainfo;
         this.baseDir = baseDir;
-        needed = metainfo.getnbSubpieces();
         nbSubpieces = metainfo.getnbSubpieces();
-        bitfield = new BitField(needed);
+        bitfield = new BitField(metainfo.getnbSubpieces());
+        if (!seeding) {
+            needed = metainfo.getnbSubpieces();
+        } else {
+            needed = 0;
+            for (int i = 0; i < (nbSubpieces / BitField.NUM_SUBPIECES_PER_PIECE) + 1; i++) {
+                for (int j = 0; j < metainfo.getPieceNbSubPieces(i); j++) {
+                    bitfield.set(i * BitField.NUM_SUBPIECES_PER_PIECE + j, true);
+                }
+            }
+        }
     }
 
     /* create storage from the path itself
      */
-    public StorageMemMapWholeFile(File videoFile, int width, int height, 
+    public StorageMemMapWholeFile(File videoFile, int width, int height,
             Address bootstrapServerAddress,
             long readingPeriod, String metainfoAddress, Address monitorAddress)
             throws IOException {
@@ -78,12 +87,12 @@ public class StorageMemMapWholeFile implements Storage {
         baseDir = videoFile.getParent();
         subpieceSize = SUBPIECE_SIZE;
         nbSubpieces = (int) ((length - 1) / subpieceSize) + 1;
-        byte[] chunkHashes = new byte[VodConfig.NUM_HASHES_IN_TORRENT_FILE *
-                ((((nbSubpieces / BitField.NUM_SUBPIECES_PER_PIECE) + 1) / BitField.NUM_PIECES_PER_CHUNK) + 1)];
+        byte[] chunkHashes = new byte[VodConfig.NUM_HASHES_IN_TORRENT_FILE
+                * ((((nbSubpieces / BitField.NUM_SUBPIECES_PER_PIECE) + 1) / BitField.NUM_PIECES_PER_CHUNK) + 1)];
         int pieceHashesLength = VodConfig.NUM_HASHES_IN_TORRENT_FILE * nbSubpieces;
         bitfield = new BitField(nbSubpieces);
         needed = 0;
-        
+
         // Note that the piece_hashes are not correctly setup yet.
         metainfo = new MetaInfoExec(videoFile.getName(), width, height,
                 subpieceSize, chunkHashes, pieceHashesLength, length,
@@ -154,13 +163,13 @@ public class StorageMemMapWholeFile implements Storage {
     public void writePieceHashesToFile() throws FileNotFoundException, IOException {
         metainfo.writePieceHashesToFile();
     }
-    
+
     private int getUncheckedSubPiece(int piece, byte[] bs, int off)
             throws IOException {
         int start = piece * metainfo.getSubpieceSize(0);
         int subPieceSize = metainfo.getSubpieceSize(piece);
         long raflen = this.length;
-        assert(raflen != 0);
+        assert (raflen != 0);
         while (start > raflen) {
             start -= raflen;
             raflen = this.length;
@@ -212,7 +221,7 @@ public class StorageMemMapWholeFile implements Storage {
             synchronized (mbb) {
                 mbb.position(start);
                 try {
-                // TODO - sometimes we get a jvm crash here...
+                    // TODO - sometimes we get a jvm crash here...
                     mbb.get(bs, off + read, len);
                 } catch (java.lang.IndexOutOfBoundsException e) {
                     e.printStackTrace();
@@ -264,8 +273,10 @@ public class StorageMemMapWholeFile implements Storage {
 
     /**
      * Creates and/or validates the path from metainfo.
-     * @param resumeDownloading true if the file already exists, and we want to check it. False if it is a new file.
-     * @throws IOException 
+     *
+     * @param resumeDownloading true if the file already exists, and we want to
+     * check it. False if it is a new file.
+     * @throws IOException
      */
     @Override
     public void check(boolean resumeDownloading) throws IOException {
@@ -414,9 +425,8 @@ public class StorageMemMapWholeFile implements Storage {
      * Put the piece in the Storage if it is correct.
      *
      * @return true if the piece was correct (sha metainfo hash matches),
-     *         otherwise false.
-     * @exception IOException
-     *                when some storage related error occurs.
+     * otherwise false.
+     * @exception IOException when some storage related error occurs.
      */
     @Override
     public byte[] getUncheckedPiece(int piece) throws IOException {
@@ -539,9 +549,10 @@ public class StorageMemMapWholeFile implements Storage {
         sb.append(p).append("% ").append(bitfield.getChunkHumanReadable());
         return sb.toString();
     }
-    
-    
-    /** The Java logger used to process our log events. */
+
+    /**
+     * The Java logger used to process our log events.
+     */
     protected static final Logger log = Logger.getLogger("se.scis.kompics.Storage");
 
     @Override

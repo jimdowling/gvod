@@ -9,7 +9,7 @@
             <properties>
                 <exec.workingdir></exec.workingdir>
                 <exec.classpathScope>runtime</exec.classpathScope>
-                <exec.args>-Xmx1024m -classpath %classpath se.sics.gvod.system.main.SwingMain -torrent http://cloud7.sics.se/gvod/topgear.mp4.data</exec.args>
+                <exec.args>-Xmx1024m -classpath %classpath se.sics.gvod.system.main.SwingMain -torrent http://cloud7.sics.se/god/topgear.mp4.data</exec.args>
                 <exec.executable>java</exec.executable>
             </properties>
         </action>
@@ -22,7 +22,7 @@
             <properties>
                 <exec.workingdir></exec.workingdir>
                 <exec.classpathScope>runtime</exec.classpathScope>
-                <exec.args>-Xdebug -Xrunjdwp:transport=dt_socket,server=n,address=${jpda.address} -Xmx1024m -classpath %classpath se.sics.gvod.system.main.SwingMain -torrent http://cloud7.sics.se/gvod/topgear.mp4.data</exec.args>
+                <exec.args>-Xdebug -Xrunjdwp:transport=dt_socket,server=n,address=${jpda.address} -Xmx1024m -classpath %classpath se.sics.gvod.system.main.SwingMain -torrent http://cloud7.sics.se/god/topgear.mp4.data</exec.args>
                 <jpda.listen>true</jpda.listen>
                 <exec.executable>java</exec.executable>
             </properties>
@@ -35,7 +35,7 @@
             </goals>
             <properties>
                 <exec.workingdir></exec.workingdir>
-                <exec.args>-Xmx1024m -classpath %classpath se.sics.gvod.system.main.SwingMain -torrent http://cloud7.sics.se/gvod/topgear.mp4.data</exec.args>
+                <exec.args>-Xmx1024m -classpath %classpath se.sics.gvod.system.main.SwingMain -torrent http://cloud7.sics.se/god/topgear.mp4.data</exec.args>
                 <profiler.action>profile</profiler.action>
                 <exec.executable>${profiler.java}</exec.executable>
             </properties>

@@ -125,7 +125,7 @@ import se.sics.kompics.Stop;
  */
 public final class Vod extends MsgRetryComponent {
 
-    public static final boolean MEM_MAP_VOD_FILES = false;
+    public static final boolean MEM_MAP_VOD_FILES = true;
     Positive<NatTraverserPort> natTraverserPort = positive(NatTraverserPort.class);
     Negative<Status> status = negative(Status.class);
     Negative<VodPort> vod = negative(VodPort.class);
@@ -380,9 +380,11 @@ public final class Vod extends MsgRetryComponent {
                             FileInputStream in = new FileInputStream(metaInfoFile);
                             metaInfo = new MetaInfoExec(in, torrentFileAddress);
                             if (MEM_MAP_VOD_FILES) {
-                                storage = new StorageMemMapWholeFile(metaInfo, metaInfoFile.getParent());
+                                storage = new StorageMemMapWholeFile(metaInfo, 
+                                        metaInfoFile.getParent(), true);
                             } else {
-                                storage = new StorageFcByteBuf(metaInfo, metaInfoFile.getParent());
+                                storage = new StorageFcByteBuf(metaInfo, 
+                                        metaInfoFile.getParent(), true);
                             }
                         } else {
                             metaInfo = (MetaInfoExec) storage.getMetaInfo();
@@ -422,9 +424,11 @@ public final class Vod extends MsgRetryComponent {
                     } else {
                         MetaInfoExec metaInfo = new MetaInfoExec(in, torrentFileAddress);
                         if (Vod.MEM_MAP_VOD_FILES) {
-                            storage = new StorageMemMapWholeFile(metaInfo, metaInfoFile.getParent());
+                            storage = new StorageMemMapWholeFile(metaInfo, 
+                                    metaInfoFile.getParent(), false);
                         } else {
-                            storage = new StorageFcByteBuf(metaInfo, metaInfoFile.getParent());
+                            storage = new StorageFcByteBuf(metaInfo, 
+                                    metaInfoFile.getParent(), false);
                         }
                     }
                     logger.info(compName + "check storage: " + storage.getMetaInfo().getName());

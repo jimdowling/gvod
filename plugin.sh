@@ -33,4 +33,4 @@ echo ""
 echo ""
 echo "Copying to $STAGING"
 echo "Copying $PLUGIN to $SCP_URL"
-scp $PLUGIN $SCP_URL
+#scp $PLUGIN $SCP_URL

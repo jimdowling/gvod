@@ -456,6 +456,12 @@ public class MetaInfoExec implements MetaInfo {
             fos.write(getPiecesHashes());
             fos.close();
     }
+    
+    public void readPieceHashesFromFile() throws FileNotFoundException, IOException {
+            FileInputStream fis = new FileInputStream(metaInfoAddress.concat(".pieces"));
+//            fos.write(getPiecesHashes());
+            fis.close();
+    }    
 
     @Override
     public byte[] getChunkHashes(int chunk) {
