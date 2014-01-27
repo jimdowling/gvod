@@ -956,12 +956,16 @@ public class BootstrapServerMysql extends ComponentDefinition {
         sb
                 .append("//www.w3.org/1999/xhtml\"><head><meta http-equiv=\"Conten");
         sb.append("t-Type\" content=\"text/html; charset=utf-8\" />");
-        sb.append("<title>Kompics P2P Bootstrap Server</title>");
+        sb.append("<title>Clommunity VoD Bootstrap Server</title>");
         sb.append("<style type=\"text/css\"><!--.style2 {font-family: ");
         sb
                 .append("Arial, Helvetica, sans-serif; color: #0099FF;}--></style>");
         sb.append("</head><body><h2 align=\"center\" class=\"style2\">");
         sb.append("Clommunity Video-on-Demand</h2><br>");
+        sb.append("<para align=\"center\"><a href=\"http://snurran.sics.se/gvod/gvod.xpi\">"
+                + "Click here to download and install our firefox addon.</a><br/>");
+        sb.append("<br/>Installation requirements: jdk 1.6+, firefox.<br/>"
+                + "Tested on ubuntu and windows 7.<para/>");
         sb.append(searchResults());
         sb.append("</body></html>");
         return sb.toString();

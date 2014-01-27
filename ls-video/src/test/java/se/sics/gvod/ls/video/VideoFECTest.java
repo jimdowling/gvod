@@ -2,13 +2,14 @@ package se.sics.gvod.ls.video;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import junit.framework.TestCase;
+import org.junit.Ignore;
+import org.junit.Test;
 import se.sics.gvod.ls.http.HTTPStreamingClient;
 import se.sics.gvod.ls.system.LSConfig;
 import se.sics.gvod.ls.system.PieceHandler;
@@ -204,7 +205,10 @@ public class VideoFECTest extends TestCase {
         }
     }
     
-    public void testWithRealFile() {
+
+    @Ignore
+    @Test
+    public void tWithRealFile() {
         try {
             URL myTestURL = ClassLoader.getSystemClassLoader().getResource("source.mp4");
             File sourceFile = new File(myTestURL.toURI());

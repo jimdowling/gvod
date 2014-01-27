@@ -22,7 +22,7 @@ fi
 echo "Building plugin..."
 
 STAGING=/tmp/gvod
-SCP_URL=jdowling@snurran.sics.se:/var/www/
+SCP_URL=glassfish@snurran.sics.se:/var/www/gvod/
 PLUGIN=gvod.xpi
 
 rm -rf $STAGING
@@ -33,4 +33,4 @@ echo ""
 echo ""
 echo "Copying to $STAGING"
 echo "Copying $PLUGIN to $SCP_URL"
-#scp $PLUGIN $SCP_URL
+scp $PLUGIN $SCP_URL
