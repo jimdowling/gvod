@@ -487,16 +487,14 @@ public class SwingMain extends ComponentDefinition implements GMain {
             }
 
             trigger(new NatTraverserInit(self, openNodes, seed,
-                    ntc, hpcc, rsc, ssc, scc, pmc, isOpenServer), natTraverser.getControl());
+                    ntc, hpcc, rsc, ssc, scc, pmc, VodConfig.isOpenIp()), 
+                    natTraverser.getControl());
 
             trigger(new CroupierInit(self, CroupierConfiguration.build()),
                     globalCroupier.getControl());
             trigger(new CroupierJoin(servers), globalCroupier.getPositive(CroupierPort.class));
 
-//            if (isOpenServer) {
             startServices();
-//            }
-
         }
     };
 
