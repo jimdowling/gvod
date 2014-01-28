@@ -18,7 +18,7 @@ How to start a leecher
 
 How to start a seeder
 ===
-./start-seeders.sh
+./start-seeders.sh <videoName>
 
 
 How to start a client downloading the video

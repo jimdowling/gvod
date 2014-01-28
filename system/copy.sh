@@ -9,7 +9,7 @@ if [ "$1" = "-help" ] ; then
 fi
 
 if [ "$1" = "-video" ] ; then
-parallel-rsync -raz -h seeders ./src/test/resources/ ${HOME}/vod
+parallel-rsync -raz -h seeders ./staging/video/ ${HOME}/vod
 fi
 
 parallel-rsync -raz -h seeders ./deploy/ ${HOME}/vod
