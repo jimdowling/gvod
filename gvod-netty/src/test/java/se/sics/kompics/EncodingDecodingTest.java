@@ -490,6 +490,26 @@ public class EncodingDecodingTest {
     
     
    @Test
+    public void bootstrapHeartbeatTest() {
+        BootstrapMsg.Heartbeat msg = new BootstrapMsg.Heartbeat(gSrc, gSrc, true,
+        (short)1500, new HashSet<Integer>(), new HashMap<Integer,Integer>());
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            BootstrapMsg.Heartbeat res =
+                    BootstrapMsgFactory.Heartbeat.fromBuffer(buffer);
+            compareNatMsgs(msg, res);
+            assert(msg.isHelper() == res.isHelper());
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+    
+   @Test
     public void helperHbMsgTest() {
         BootstrapMsg.HelperHeartbeat msg = new BootstrapMsg.HelperHeartbeat(gSrc, gSrc, true);
         try {
@@ -510,14 +530,14 @@ public class EncodingDecodingTest {
     
    @Test
     public void helperDownloadReqTest() {
-        BootstrapMsg.HelperDownloadRequest msg = 
-                new BootstrapMsg.HelperDownloadRequest(gSrc, gSrc, "gvod://myvideo/torrent.data");
-        msg.setTimeoutId(UUID.nextUUID());
+        BootstrapMsg.HelperDownload msg = 
+                new BootstrapMsg.HelperDownload(gSrc, gSrc, "gvod://myvideo/torrent.data");
+//        msg.setTimeoutId(UUID.nextUUID());
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            BootstrapMsg.HelperDownloadRequest res =
-                    BootstrapMsgFactory.HelperDownloadRequest.fromBuffer(buffer);
+            BootstrapMsg.HelperDownload res =
+                    BootstrapMsgFactory.HelperDownload.fromBuffer(buffer);
             compareNatMsgs(msg, res);
             assert(msg.getUrl().compareTo(res.getUrl()) == 0);
         } catch (MessageDecodingException ex) {
@@ -529,25 +549,25 @@ public class EncodingDecodingTest {
         }
     }
     
-   @Test
-    public void helperDownloadRespTest() {
-        BootstrapMsg.HelperDownloadResponse msg = 
-                new BootstrapMsg.HelperDownloadResponse(gSrc, gSrc, true, UUID.nextUUID());
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            BootstrapMsg.HelperDownloadResponse res =
-                    BootstrapMsgFactory.HelperDownloadResponse.fromBuffer(buffer);
-            compareNatMsgs(msg, res);
-            assert(msg.isSuccess() == res.isSuccess());
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
+//   @Test
+//    public void helperDownloadRespTest() {
+//        BootstrapMsg.HelperDownloadResponse msg = 
+//                new BootstrapMsg.HelperDownloadResponse(gSrc, gSrc, true, UUID.nextUUID());
+//        try {
+//            ByteBuf buffer = msg.toByteArray();
+//            opCodeCorrect(buffer, msg);
+//            BootstrapMsg.HelperDownloadResponse res =
+//                    BootstrapMsgFactory.HelperDownloadResponse.fromBuffer(buffer);
+//            compareNatMsgs(msg, res);
+//            assert(msg.isSuccess() == res.isSuccess());
+//        } catch (MessageDecodingException ex) {
+//            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+//            assert (false);
+//        } catch (MessageEncodingException ex) {
+//            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+//            assert (false);
+//        }
+//    }
     
     
 

@@ -113,8 +113,7 @@ public class ActiveTorrents {
 
         public TorrentEntry(String videoName, String torrentFilename,
                 int width, int height,
-                long size,
-                String percent, boolean seed, boolean running) {
+                long size, String percent, boolean seed, boolean running) {
             if (videoName == null || torrentFilename == null) {
                 throw new NullPointerException();
             }
@@ -251,9 +250,9 @@ public class ActiveTorrents {
 
     /**
      *
-     * @param id
      * @param torrentFilename
      * @param peer
+     * @param seeder
      * @return videoName
      * @throws ActiveTorrentsException
      */
@@ -276,7 +275,7 @@ public class ActiveTorrents {
         if (f.exists() == false || f.isFile() == false) {
             return null;
         }
-        String videoName = addTorrent(torrentFilename);
+        String videoName = addTorrentP(torrentFilename);
         Integer videoId = calculateVideoId(videoName);
 
         mapIdPeer.put(videoId, peer);
@@ -294,6 +293,7 @@ public class ActiveTorrents {
                     oldEntry.isRunning());
             firePropertyChange(SEED_ADDED, oldEntry, entry);
             updatePercentage(oldEntry.getVideoName(), "100");
+            writeTorrentIndexFile();
         }
         return videoName;
     }
@@ -338,7 +338,7 @@ public class ActiveTorrents {
                 "0", false, true);
         mapTorrentEntries.put(torrentFilename, entry);
         listTorrentEntries.add(entry);
-
+        writeTorrentIndexFile();
         firePropertyChange(TORRENT_ADDED, null, entry);
         return videoName;
     }
@@ -538,16 +538,16 @@ public class ActiveTorrents {
 
     public synchronized static void makeSeeder(String torrentFilename)
             throws ActiveTorrentsException {
-        getInstance().makeSeederP(torrentFilename);
+        getInstance().writeTorrentToFile(torrentFilename, true);
     }
 
-    private void makeSeederP(String torrentFilename)
+    private void writeTorrentToFile(String torrentFilename, boolean seeder)
             throws ActiveTorrentsException {
         TorrentEntry entry = mapTorrentEntries.get(torrentFilename);
         if (entry == null) {
             throw new ActiveTorrentsException("Not found: {} when trying to make a seeder.");
         }
-        entry.setSeed(true);
+        entry.setSeed(seeder);
         writeTorrentIndexFile();
         firePropertyChange(SEED_BECOME, mapTorrentVideo.get(torrentFilename), torrentFilename);
     }

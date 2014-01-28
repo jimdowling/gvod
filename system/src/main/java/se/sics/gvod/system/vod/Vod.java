@@ -2606,8 +2606,6 @@ public final class Vod extends MsgRetryComponent {
         changeUtility(VodConfig.SEEDER_UTILITY_VALUE);
         seeder = true;
 
-        //become a potential background torrent.
-        // TODO - move this to SwingMain?? 
         try {
             ActiveTorrents.makeSeeder(torrentFileAddress);
         } catch (Exception e) {

@@ -32,6 +32,7 @@ import se.sics.gvod.bootstrap.msgs.BootstrapMsg;
 
 import se.sics.kompics.Handler;
 import se.sics.gvod.address.Address;
+import se.sics.gvod.bootstrap.msgs.BootstrapMsg.HelperDownload;
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.UtilityVod;
 import se.sics.gvod.common.msgs.NatReportMsg;
@@ -44,6 +45,7 @@ import se.sics.gvod.net.VodNetwork;
 import se.sics.kompics.Stop;
 import se.sics.gvod.timer.CancelTimeout;
 import se.sics.gvod.timer.SchedulePeriodicTimeout;
+import se.sics.gvod.timer.Timeout;
 import se.sics.gvod.timer.Timer;
 import se.sics.ipasdistances.PrefixMatcher;
 import se.sics.kompics.ComponentDefinition;
@@ -54,14 +56,13 @@ import se.sics.kompics.web.WebRequest;
 import se.sics.kompics.web.WebResponse;
 
 /**
- * The
- * <code>BootstrapServer</code> class.
+ * The <code>BootstrapServer</code> class.
  *
  *
  * CREATE TABLE nodes ( id INT NOT NULL, ip INT UNSIGNED NOT NULL, port SMALLINT
  * UNSIGNED NOT NULL, asn SMALLINT UNSIGNED NOT NULL DEFAULT 0, country char(2)
  * NOT NULL DEFAULT 'se', nat_type TINYINT UNSIGNED NOT NULL, open BOOLEAN NOT
- * NULL, mtu SMALLINT UNSIGNED NOT NULL DEFAULT 1500, last_ping TIMESTAMP
+ * NULL, mtu SMALLINT UNSIGNED NOT NULL DEFAULT 1500, helper BOOLEAN NOT NULL, last_ping TIMESTAMP
  * DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, joined TIMESTAMP NOT
  * NULL, PRIMARY KEY(id), KEY open_stable_idx(open, last_ping), KEY
  * country_idx(country), KEY asn_idx(asn) ) engine=innodb;
@@ -157,15 +158,48 @@ public class BootstrapServerMysql extends ComponentDefinition {
     private String passwd;
     private Connection con = null;
     private int numRowsAffected = 0;
-    private int lastNumDeletedRows = 0;
+    private int numRows = 0;
     private TimeoutId cleanupId;
+    private TimeoutId checkUploadsId;
     private boolean asnMatcher;
     private boolean countryMatcher = false;
     private PrefixMatcher pm = null;
-    Map<Integer, SortedMap<Integer, ByteBuffer>> addingOverlaysBuffer =
-            new HashMap<Integer, SortedMap<Integer, ByteBuffer>>();
+    Map<Integer, SortedMap<Integer, ByteBuffer>> addingOverlaysBuffer
+            = new HashMap<Integer, SortedMap<Integer, ByteBuffer>>();
     Map<Integer, String> addingDescriptions = new HashMap<Integer, String>();
     Map<Integer, String> addingImgUrls = new HashMap<Integer, String>();
+
+    /**
+     * <HelpNodeAddress, LastHeardFrom>
+     */
+    Map<Address, Helper> helperNodes = new HashMap<Address, Helper>();
+
+    public final class Helper {
+
+        private final boolean available;
+        private final long lastPing;
+
+        public Helper(boolean available, long lastPing) {
+            this.available = available;
+            this.lastPing = lastPing;
+        }
+
+        public long getLastPing() {
+            return lastPing;
+        }
+
+        public boolean isAvailable() {
+            return available;
+        }
+    }
+
+    public final class CheckForNewUploadsTimeout extends Timeout {
+
+        public CheckForNewUploadsTimeout(SchedulePeriodicTimeout request) {
+            super(request);
+        }
+
+    }
 
     public BootstrapServerMysql() {
 
@@ -173,6 +207,7 @@ public class BootstrapServerMysql extends ComponentDefinition {
         subscribe(handleBootstrapMsgGetPeersRequest, network);
         subscribe(handleHeartbeat, network);
         subscribe(handleNatReportMsg, network);
+        subscribe(handleCheckForNewUploadsTimeout, timer);
         subscribe(handleCleanupStaleTimeout, timer);
         subscribe(handleInit, control);
         subscribe(handleStop, control);
@@ -220,13 +255,30 @@ public class BootstrapServerMysql extends ComponentDefinition {
                 pm = PrefixMatcher.getInstance();
             }
 
-            SchedulePeriodicTimeout spt =
-                    new SchedulePeriodicTimeout(evictAfter, evictAfter);
-            spt.setTimeoutEvent(new CleanupStaleTimeout(spt));
+            SchedulePeriodicTimeout spt
+                    = new SchedulePeriodicTimeout(evictAfter, evictAfter);
+            spt.setTimeoutEvent(new CheckForNewUploadsTimeout(spt));
             cleanupId = spt.getTimeoutEvent().getTimeoutId();
             trigger(spt, timer);
+
+            SchedulePeriodicTimeout checkUploads
+                    = new SchedulePeriodicTimeout(20*1000, 20*1000);
+            checkUploads.setTimeoutEvent(new CheckForNewUploadsTimeout(spt));
+            checkUploadsId = spt.getTimeoutEvent().getTimeoutId();
+            trigger(checkUploads, timer);
         }
     };
+
+    Handler<BootstrapMsg.HelperHeartbeat> handleBootstrapHelperHeartbeat
+            = new Handler<BootstrapMsg.HelperHeartbeat>() {
+                @Override
+                public void handle(BootstrapMsg.HelperHeartbeat event) {
+
+                    Helper h = new Helper(event.isSpace(), System.currentTimeMillis());
+                    helperNodes.put(event.getSource(), h);
+                }
+            };
+    
     Handler<BootstrapMsg.GetPeersRequest> handleBootstrapMsgGetPeersRequest = new Handler<BootstrapMsg.GetPeersRequest>() {
         @Override
         public void handle(BootstrapMsg.GetPeersRequest event) {
@@ -248,8 +300,8 @@ public class BootstrapServerMysql extends ComponentDefinition {
 
             trigger(response, network);
 
-            logger.info("Responded with {} peers to peer {} for overlayId " +
-                    event.getOverlay() + " Time taken:  "
+            logger.info("Responded with {} peers to peer {} for overlayId "
+                    + event.getOverlay() + " Time taken:  "
                     + (System.currentTimeMillis() - baseTime),
                     peers.size(), event.getSource().getId());
             logger.info(response.toString());
@@ -269,7 +321,6 @@ public class BootstrapServerMysql extends ComponentDefinition {
             return entries;
         }
 
-
         int id = addr.getId();
         Statement stmt = null;
         ResultSet rs = null;
@@ -288,8 +339,6 @@ public class BootstrapServerMysql extends ComponentDefinition {
                     append(BootstrapConfig.DEFAULT_NUM_NODES_RETURNED);
 
             // OPEN nat =>  select * from nodes where (nat_type >> 7 & 1) = 1;
-
-
             hadResults = stmt.execute(selectQuery.toString());
 
             while (hadResults) {
@@ -312,7 +361,7 @@ public class BootstrapServerMysql extends ComponentDefinition {
                         Address nodeAddr = new Address(nodeIp, nodePort, nodeId);
                         VodDescriptor entry = new VodDescriptor(
                                 new VodAddress(nodeAddr, VodConfig.SYSTEM_OVERLAY_ID,
-                                natPolicy, null), new UtilityVod(0), age, mtu);
+                                        natPolicy, null), new UtilityVod(0), age, mtu);
                         entries.add(entry);
                     } catch (UnknownHostException ex) {
                         java.util.logging.Logger.getLogger(BootstrapServerMysql.class.getName()).log(
@@ -407,7 +456,7 @@ public class BootstrapServerMysql extends ComponentDefinition {
                             vodAddr = new VodAddress(nodeAddr, overlayId, nodeNatType, parents);
                         }
 
-                        VodDescriptor entry = new VodDescriptor(vodAddr, 
+                        VodDescriptor entry = new VodDescriptor(vodAddr,
                                 new UtilityVod(nodeUtility), 0, mtu);
                         entries.add(entry);
                     } catch (UnknownHostException ex) {
@@ -526,13 +575,14 @@ public class BootstrapServerMysql extends ComponentDefinition {
                     event.getDownloaders(),
                     event.getVodSource().getNatPolicy(),
                     event.getVodSource().getNatType() == NatType.OPEN ? true : false,
-                    event.getMtu());
+                    event.getMtu(), 
+                    event.isHelper());
         }
     };
 
     private boolean insertNodes(VodAddress nodeAddr,
             Set<Integer> seeders, Map<Integer, Integer> downloaders,
-            short natPolicy, boolean isOpen, short mtu) {
+            short natPolicy, boolean isOpen, short mtu, boolean isHelper) {
 
         if (!validateDbConnection()) {
             logger.warn("Couldn't get DB connection when inserting nodes.");
@@ -576,16 +626,16 @@ public class BootstrapServerMysql extends ComponentDefinition {
             overlays.append("(").append(id).append(',').append(entry.getKey()).append(",").append(entry.getValue()).append(")");
         }
 
-
         StringBuilder insertNodeQuery = new StringBuilder();
         insertNodeQuery.append("INSERT INTO nodes"
-                + "(id,ip,port,asn,country,nat_type,open, mtu, last_ping,joined) VALUES (").
+                + "(id, ip, port, asn, country, nat_type, open, mtu, helper, last_ping, joined) VALUES (").
                 append(id).append(", ").
                 append("INET_ATON('").append(ipAddr.getHostAddress()).append("'),").append(port).
                 append(", ").append(asn).append(", ").append("'se'").append(", ").
                 append(natPolicy).append(", ").
                 append(isOpen).append(", ").
                 append(mtu).append(", ").
+                append(isHelper).append(", ").
                 append("NOW(), NOW()) ON DUPLICATE KEY UPDATE last_ping=").append("NOW()");
 
         StringBuilder insertOverlaysQuery = new StringBuilder();
@@ -796,48 +846,125 @@ public class BootstrapServerMysql extends ComponentDefinition {
 
         return true;
     }
-    Handler<CleanupStaleTimeout> handleCleanupStaleTimeout =
-            new Handler<CleanupStaleTimeout>() {
-        @Override
-        public void handle(CleanupStaleTimeout event) {
 
-            // select all primary keys of all entries that have not sent a heartbeat
-            // for 3 times the HEARTBEAT period
+    /**
+     * If a new file has been uploaded, and we have some cloud seeders available
+     * ask an available cloud seeder to download the file and re-seed it.
+     */
+    Handler<CheckForNewUploadsTimeout> handleCheckForNewUploadsTimeout
+            = new Handler<CheckForNewUploadsTimeout>() {
+                @Override
+                public void handle(CheckForNewUploadsTimeout event) {
 
-            Statement stmt = null;
-            try {
-                if (!validateDbConnection()) {
-                    logger.warn("Couldn't get DB connection when cleaning up");
-                    return;
-                }
-                stmt = con.createStatement();
-
-                // if you don't know ahead of time that
-                // the query will be a SELECT...
-
-                StringBuilder deleteQuery = new StringBuilder();
-                // This query should use the last_ping_idx.
-                deleteQuery.append("DELETE FROM nodes WHERE NOW()- last_ping > ").append((BaseCommandLineConfig.BOOTSTRAP_HEARTBEAT_MS / 1000) * 10);
-                lastNumDeletedRows = stmt.executeUpdate(deleteQuery.toString());
-                logger.debug("Cleaner removed " + lastNumDeletedRows + " rows.");
-
-            } catch (SQLException ex) {
-                // handle any errors
-                logger.warn("SQLException: " + ex.getMessage());
-                logger.warn("SQLState: " + ex.getSQLState());
-                logger.warn("VendorError: " + ex.getErrorCode());
-            } finally {
-                if (stmt != null) {
+                    Statement stmt = null;
+                    ResultSet rs = null;
+                    boolean hadResults = false;
+                    List<String> videosNeedingHelp = new ArrayList<String>();
                     try {
-                        stmt.close();
-                    } catch (SQLException sqlEx) {
-                    } // ignore
-                    stmt = null;
-                }
-            }
+                        if (!validateDbConnection()) {
+                            logger.warn("Couldn't get DB connection when checking for new uploads");
+                            return;
+                        }
+                        stmt = con.createStatement();
 
-        }
-    };
+                        StringBuilder query = new StringBuilder();
+                        // find any movies that have only 1 node as an uploader and that node is not
+                        // a cloud-helper node. 
+                        // Note: This doesn't include where nodes need a helper because the b/w is too low.
+                        query.append("SELECT distinct(overlay_name) FROM overlay_details,overlays,nodes "
+                                + "WHERE (SELECT COUNT(*) from overlays WHERE "
+                                + "overlay_details.overlay_id = overlays.overlay_id) = 1 "
+                                + "AND overlays.id=nodes.id AND nodes.helper=0"
+                        );
+
+                        hadResults = stmt.execute(query.toString());
+
+                        while (hadResults) {
+                            rs = stmt.getResultSet();
+                            while (rs.next()) {
+                                String name = rs.getString(1);
+                                StringBuilder sb = new StringBuilder();
+                                sb.append("gvod://http:/").append(self.getIp())
+                                .append("/gvod/").append(name).append(".data");
+                                videosNeedingHelp.add(sb.toString());
+                            }
+                            hadResults = stmt.getMoreResults();
+                        }
+                    } catch (SQLException ex) {
+                        // handle any errors
+                        logger.warn("SQLException: " + ex.getMessage());
+                        logger.warn("SQLState: " + ex.getSQLState());
+                        logger.warn("VendorError: " + ex.getErrorCode());
+                    } finally {
+                        if (stmt != null) {
+                            try {
+                                stmt.close();
+                            } catch (SQLException sqlEx) {
+                            } // ignore
+                            stmt = null;
+                        }
+                    }
+
+                    // Each available helper downloads one new video per 'round',
+                    // up to numVideos
+                    int numVideos = videosNeedingHelp.size();
+                    for (Address dest : helperNodes.keySet()) {
+                        if (numVideos == 0) {
+                            break;
+                        }
+                        Helper h = helperNodes.get(dest);
+                        if (h.isAvailable()) {
+                            trigger(new BootstrapMsg.HelperDownload(ToVodAddr.systemAddr(self), 
+                               ToVodAddr.systemAddr(dest), 
+                            videosNeedingHelp.get(numVideos-1)), network);
+                            numVideos--;
+                        }
+                    }
+                    
+                }
+            };
+
+    Handler<CleanupStaleTimeout> handleCleanupStaleTimeout
+            = new Handler<CleanupStaleTimeout>() {
+                @Override
+                public void handle(CleanupStaleTimeout event) {
+
+                    // select all primary keys of all entries that have not sent a heartbeat
+                    // for 3 times the HEARTBEAT period
+                    Statement stmt = null;
+                    try {
+                        if (!validateDbConnection()) {
+                            logger.warn("Couldn't get DB connection when cleaning up");
+                            return;
+                        }
+                        stmt = con.createStatement();
+
+                        // if you don't know ahead of time that
+                        // the query will be a SELECT...
+                        StringBuilder deleteQuery = new StringBuilder();
+                        // This query should use the last_ping_idx.
+                        deleteQuery.append("DELETE FROM nodes WHERE NOW()- last_ping > ").append((BaseCommandLineConfig.BOOTSTRAP_HEARTBEAT_MS / 1000) * 10);
+                        int numRows = stmt.executeUpdate(deleteQuery.toString());
+                        logger.debug("Cleaner removed " + numRows + " rows."
+                        );
+
+                    } catch (SQLException ex) {
+                        // handle any errors
+                        logger.warn("SQLException: " + ex.getMessage());
+                        logger.warn("SQLState: " + ex.getSQLState());
+                        logger.warn("VendorError: " + ex.getErrorCode());
+                    } finally {
+                        if (stmt != null) {
+                            try {
+                                stmt.close();
+                            } catch (SQLException sqlEx) {
+                            } // ignore
+                            stmt = null;
+                        }
+                    }
+
+                }
+            };
 
     // TODO - this is broken. Should work with overlayId, not overlayname
     private Set<VodDescriptor> getAllNodes(String overlay) {
@@ -886,12 +1013,12 @@ public class BootstrapServerMysql extends ComponentDefinition {
                         }
 
                         Address nodeAddr = new Address(nodeIp, nodePort, nodeId);
-                        VodDescriptor entry =
-                                new VodDescriptor(
-                                new VodAddress(nodeAddr, VodConfig.SYSTEM_OVERLAY_ID, natPolicy, null),
-                                new UtilityVod(nodeUtility),
-                                age,
-                                mtu 
+                        VodDescriptor entry
+                                = new VodDescriptor(
+                                        new VodAddress(nodeAddr, VodConfig.SYSTEM_OVERLAY_ID, natPolicy, null),
+                                        new UtilityVod(nodeUtility),
+                                        age,
+                                        mtu
                                 );
                         entries.add(entry);
                     } catch (UnknownHostException ex) {

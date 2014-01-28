@@ -132,6 +132,9 @@ public class BootstrapServerMain extends ComponentDefinition {
             try {
 
                 InetAddress ip = event.getIpAddress();
+                if (ip == null) {
+                    ip = InetAddress.getLocalHost();
+                }
                 VodConfig.setIp(ip);
                 VodConfig.setBoostrapServerIp(ip);
                 logger.info("Bootstrap IP: " + ip.getHostAddress());

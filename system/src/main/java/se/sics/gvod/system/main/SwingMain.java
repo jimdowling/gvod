@@ -34,9 +34,11 @@ import org.slf4j.LoggerFactory;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.bootstrap.client.BootstrapClient;
 import se.sics.gvod.bootstrap.client.BootstrapClientInit;
+import se.sics.gvod.bootstrap.msgs.BootstrapMsg;
 import se.sics.gvod.bootstrap.port.AddOverlayRequest;
 import se.sics.gvod.bootstrap.port.AddOverlayResponse;
 import se.sics.gvod.bootstrap.port.BootstrapHeartbeat;
+import se.sics.gvod.bootstrap.port.BootstrapHelperHb;
 import se.sics.gvod.bootstrap.port.BootstrapPort;
 import se.sics.gvod.bootstrap.port.BootstrapRequest;
 import se.sics.gvod.bootstrap.port.BootstrapResponse;
@@ -48,7 +50,6 @@ import se.sics.gvod.config.BootstrapConfiguration;
 import se.sics.gvod.config.VodConfig;
 import se.sics.gvod.common.util.ToVodAddr;
 import se.sics.gvod.config.CroupierConfiguration;
-import se.sics.gvod.common.util.CachedNatType;
 import se.sics.gvod.config.HpClientConfiguration;
 import se.sics.gvod.config.RendezvousServerConfiguration;
 import se.sics.gvod.nat.traversal.NatTraverser;
@@ -126,6 +127,8 @@ import se.sics.kompics.web.jetty.JettyWebServer;
  */
 public class SwingMain extends ComponentDefinition implements GMain {
 
+    static final int MAX_NUM_HELPER_VIDEOS = 20;
+    
     static boolean isOpenServer = false;
     static boolean offline = false;
     static String openServerIp;
@@ -224,8 +227,8 @@ public class SwingMain extends ComponentDefinition implements GMain {
             }
 
             VodConfig.init(args);
-            logger.info((System.currentTimeMillis() - appStartTime) +
-                    ": Config params initialized ");
+            logger.info((System.currentTimeMillis() - appStartTime)
+                    + ": Config params initialized ");
 
         } catch (IOException ex) {
             logger.warn(ex.getMessage());
@@ -245,8 +248,8 @@ public class SwingMain extends ComponentDefinition implements GMain {
 
         Kompics.createAndStart(SwingMain.class, VodConfig.getNumWorkers());
 
-        logger.info((System.currentTimeMillis() - appStartTime) +
-                ": Kompics Started");
+        logger.info((System.currentTimeMillis() - appStartTime)
+                + ": Kompics Started");
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
@@ -347,7 +350,7 @@ public class SwingMain extends ComponentDefinition implements GMain {
         System.exit(-1);
 
     }
-//-------------------------------------------------------------------    
+    
     public Handler<GetIpResponse> handleGetIpResponse = new Handler<GetIpResponse>() {
         @Override
         public void handle(GetIpResponse event) {
@@ -391,6 +394,8 @@ public class SwingMain extends ComponentDefinition implements GMain {
             subscribe(handleBootstrapResponse, bootstrap.getPositive(BootstrapPort.class));
             subscribe(handleAddOverlayResponse, bootstrap.getPositive(BootstrapPort.class));
             subscribe(handleBootServerKeepAlive, timer.getPositive(Timer.class));
+            subscribe(handleBootstrapMsgHelperDownloadRequest, 
+                    network.getPositive(VodNetwork.class));
 
             Address selfAddress = new Address(ip, VodConfig.getPort(), nodeId);
             logger.info("Network component listening on={}", selfAddress);
@@ -432,7 +437,7 @@ public class SwingMain extends ComponentDefinition implements GMain {
 
                 }
             };
-//-------------------------------------------------------------------    
+    
     /**
      * This should return the IP addresses of the CLOMMUNITY nodes.
      */
@@ -487,7 +492,7 @@ public class SwingMain extends ComponentDefinition implements GMain {
             }
 
             trigger(new NatTraverserInit(self, openNodes, seed,
-                    ntc, hpcc, rsc, ssc, scc, pmc, VodConfig.isOpenIp()), 
+                    ntc, hpcc, rsc, ssc, scc, pmc, VodConfig.isOpenIp()),
                     natTraverser.getControl());
 
             trigger(new CroupierInit(self, CroupierConfiguration.build()),
@@ -502,8 +507,18 @@ public class SwingMain extends ComponentDefinition implements GMain {
         @Override
         public void handle(BootServerKeepAlive event) {
             sendKeepalive();
+
+            if (VodConfig.isCloudHelper()) {
+                cloudHelper();
+            }
         }
     };
+
+    private void cloudHelper() {
+        boolean roomForHelping = (ActiveTorrents.size() < MAX_NUM_HELPER_VIDEOS) ? true : false;
+        trigger(new BootstrapHelperHb(roomForHelping),
+                bootstrap.getPositive(BootstrapPort.class));
+    }
 
     Handler<RebootstrapMain> handleRebootstrapMain = new Handler<RebootstrapMain>() {
         @Override
@@ -534,7 +549,7 @@ public class SwingMain extends ComponentDefinition implements GMain {
 //            }
         }
     };
-//-------------------------------------------------------------------    
+    
     Handler<QuitCompleted> handleQuitCompleted = new Handler<QuitCompleted>() {
         @Override
         public void handle(QuitCompleted event) {
@@ -545,7 +560,7 @@ public class SwingMain extends ComponentDefinition implements GMain {
 //            ActiveTorrents.removePeer(id);
         }
     };
-//-------------------------------------------------------------------    
+    
     Handler<ReportDownloadSpeed> handleDownloadSpeed = new Handler<ReportDownloadSpeed>() {
         @Override
         public void handle(ReportDownloadSpeed event) {
@@ -559,7 +574,7 @@ public class SwingMain extends ComponentDefinition implements GMain {
             totalDownload.set(event.getTotalBytesDownloaded());
         }
     };
-//-------------------------------------------------------------------    
+    
     Handler<StartInBackground> handleStartInBackground = new Handler<StartInBackground>() {
         @Override
         public void handle(StartInBackground event) {
@@ -570,7 +585,7 @@ public class SwingMain extends ComponentDefinition implements GMain {
             }
         }
     };
-//-------------------------------------------------------------------    
+    
     Handler<SlowBackground> handleSlowBackground = new Handler<SlowBackground>() {
         @Override
         public void handle(SlowBackground event) {
@@ -579,7 +594,24 @@ public class SwingMain extends ComponentDefinition implements GMain {
             }
         }
     };
-//-------------------------------------------------------------------    
+    
+    Handler<BootstrapMsg.HelperDownload> handleBootstrapMsgHelperDownloadRequest 
+            = new Handler<BootstrapMsg.HelperDownload>() {
+        @Override
+        public void handle(BootstrapMsg.HelperDownload event) {
+            String url = event.getUrl();
+            try {
+                downloadTorrentAndCreatePeer(url);
+            } catch (IOException ex) {
+                java.util.logging.Logger.getLogger(SwingMain.class.getName()).log(Level.SEVERE, null, ex);
+            }
+//            BootstrapMsg.HelperDownloadResponse r = 
+//                    new BootstrapMsg.HelperDownloadResponse(self.getAddress(),
+//            event.getVodSource(), success, event.getTimeoutId());
+//            trigger(r, network.getPositive(VodNetwork.class));
+        }
+    };
+    
     Handler<AddOverlayResponse> handleAddOverlayResponse = new Handler<AddOverlayResponse>() {
         @Override
         public void handle(AddOverlayResponse event) {
@@ -588,7 +620,7 @@ public class SwingMain extends ComponentDefinition implements GMain {
             sendKeepalive();
         }
     };
-//-------------------------------------------------------------------    
+    
     Handler<Fault> handleFault = new Handler<Fault>() {
         @Override
         public void handle(Fault event) {
@@ -710,7 +742,7 @@ public class SwingMain extends ComponentDefinition implements GMain {
         return true;
     }
 
-//-------------------------------------------------------------------    
+    
     /**
      *
      * @param filname: full pathname of torrent file
@@ -778,7 +810,7 @@ public class SwingMain extends ComponentDefinition implements GMain {
         return videoName;
     }
 
-//-------------------------------------------------------------------    
+    
     /**
      * Generates a peerId as a 4-byte Int using 3 bytes from the node's MAC
      * address, and 1 byte using a random number.
@@ -808,7 +840,7 @@ public class SwingMain extends ComponentDefinition implements GMain {
         return nodeId;
     }
 
-//-------------------------------------------------------------------    
+    
     public static int byteArrayToInt(byte[] b, int offset) {
         int value = 0;
         for (int i = 0; i < 4; i++) {
@@ -819,7 +851,7 @@ public class SwingMain extends ComponentDefinition implements GMain {
         return value;
     }
 
-//-------------------------------------------------------------------    
+    
     @Override
     public boolean changeUtility(String videoFilename, int seekPos, int readPos, OutputStream responseBody) {
         // TODO - Broken
@@ -833,7 +865,7 @@ public class SwingMain extends ComponentDefinition implements GMain {
         return true;
     }
 
-//-------------------------------------------------------------------    
+    
     /**
      *
      * @param bootstrapServerAddr
@@ -921,7 +953,7 @@ public class SwingMain extends ComponentDefinition implements GMain {
         return true;
     }
 
-//-------------------------------------------------------------------    
+    
     public synchronized void stopAndDestroyAllTorrents() {
         Set<Integer> ids = ActiveTorrents.getAllIds();
         for (Integer id : ids) {
@@ -933,7 +965,7 @@ public class SwingMain extends ComponentDefinition implements GMain {
         }
     }
 
-//-------------------------------------------------------------------    
+    
     private void sendBootstrapRequest() {
         trigger(new BootstrapRequest(VodConfig.SYSTEM_OVERLAY_ID),
                 bootstrap.getPositive(BootstrapPort.class));
@@ -941,17 +973,17 @@ public class SwingMain extends ComponentDefinition implements GMain {
         numBootstrapAttempts++;
     }
 
-//-------------------------------------------------------------------    
+    
     public int getSpeed() {
         return downloadSpeed.get();
     }
 
-//-------------------------------------------------------------------    
+    
     public int getTotalDownloaded() {
         return totalDownload.get();
     }
 
-//-------------------------------------------------------------------    
+    
     public void stopPeer(Integer peerId) {
         synchronized (this) {
             Component peer = ActiveTorrents.getPeer(peerId);
@@ -963,7 +995,7 @@ public class SwingMain extends ComponentDefinition implements GMain {
         }
     }
 
-//-------------------------------------------------------------------    
+    
     @Override
     public void stopPeer(Component peer) {
         synchronized (this) {
@@ -1108,15 +1140,16 @@ public class SwingMain extends ComponentDefinition implements GMain {
 
     }
 
-//-------------------------------------------------------------------    
+    
     private void sendKeepalive() {
         Set<Integer> seeds = ActiveTorrents.getSeederIds();
         Map<Integer, Integer> downloaders = ActiveTorrents.getLeecherIdsUtilities();
-        trigger(new BootstrapHeartbeat((short) VodConfig.LB_MTU_MEASURED, seeds, downloaders),
+        trigger(new BootstrapHeartbeat(VodConfig.isCloudHelper(),
+                (short) VodConfig.LB_MTU_MEASURED, seeds, downloaders),
                 bootstrap.getPositive(BootstrapPort.class));
     }
 
-//-------------------------------------------------------------------    
+    
     private void getIp() {
         if (VodConfig.isTenDot()) {
             trigger(new GetIpRequest(false, EnumSet.of(

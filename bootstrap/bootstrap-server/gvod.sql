@@ -63,6 +63,7 @@ CREATE TABLE `nodes` (
   `nat_type` tinyint(3) unsigned NOT NULL,
   `open` tinyint(1) NOT NULL,
   `mtu` smallint(5) unsigned NOT NULL DEFAULT '1500',
+  `helper` BOOLEAN NOT NULL, 
   `last_ping` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `joined` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   PRIMARY KEY (`id`),

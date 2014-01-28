@@ -16,6 +16,7 @@ import se.sics.kompics.Negative;
 import se.sics.kompics.Stop;
 import se.sics.gvod.bootstrap.port.BootstrapPort;
 import se.sics.gvod.bootstrap.port.BootstrapHeartbeat;
+import se.sics.gvod.bootstrap.port.BootstrapHelperHb;
 import se.sics.gvod.bootstrap.port.BootstrapRequest;
 import se.sics.gvod.bootstrap.port.BootstrapResponse;
 import se.sics.gvod.net.VodAddress;
@@ -134,6 +135,7 @@ public class BootstrapClient extends MsgRetryComponent {
                     }
                 }
             };
+    
     Handler<AddOverlayRequest> handleAddOverlayRequest =
             new Handler<AddOverlayRequest>() {
 
@@ -231,6 +233,7 @@ public class BootstrapClient extends MsgRetryComponent {
                     }
                 }
             };
+    
     Handler<BootstrapHeartbeat> handleHeartbeat = new Handler<BootstrapHeartbeat>() {
 
         @Override
@@ -238,11 +241,20 @@ public class BootstrapClient extends MsgRetryComponent {
             VodAddress src = (event.getDownloadingAddress() == null) ? self.getAddress()
                     : event.getDownloadingAddress();
             logger.debug("Sending BootstrapHeartbeat from : " + src);
-            short mtu = event.getMtu();
-            Set<Integer> seeders = event.getSeedingOverlays();
-            Map<Integer, Integer> downloaders = event.getDownloadingUtilities();
             BootstrapMsg.Heartbeat request = new BootstrapMsg.Heartbeat(
-                    src, server, mtu, seeders, downloaders);
+                    src, server, event.isHelper(), event.getMtu(), 
+                    event.getSeedingOverlays(), event.getDownloadingUtilities());
+            delegator.doTrigger(request, network);
+
+        }
+    };
+    
+    Handler<BootstrapHelperHb> handleBootstrapHelperHb = new Handler<BootstrapHelperHb>() {
+
+        @Override
+        public void handle(BootstrapHelperHb event) {
+            BootstrapMsg.HelperHeartbeat request = new BootstrapMsg.HelperHeartbeat(
+                    self.getAddress(), server, event.isAvailable());
             delegator.doTrigger(request, network);
 
         }

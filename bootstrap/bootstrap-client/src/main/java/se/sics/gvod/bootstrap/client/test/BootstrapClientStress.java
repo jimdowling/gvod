@@ -258,7 +258,7 @@ public class BootstrapClientStress extends ComponentDefinition {
                 Set<Integer> seeds = new HashSet<Integer>();
                 seeds.add(overlay);
                 Map<Integer, Integer> downloaders = new HashMap<Integer, Integer>();
-                trigger(new BootstrapHeartbeat(
+                trigger(new BootstrapHeartbeat(false,
                         (short) 1500, seeds, downloaders,
                         ToVodAddr.systemAddr(new Address(ip, 50000, 50000))),
                         bootstrapClients.get(openResponses++).getPositive(BootstrapPort.class));

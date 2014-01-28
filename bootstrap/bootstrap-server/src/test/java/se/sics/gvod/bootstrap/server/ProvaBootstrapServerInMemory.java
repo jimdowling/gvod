@@ -164,7 +164,7 @@ public class ProvaBootstrapServerInMemory extends TestCase {
                     seeds.add(1);
                     Map<Integer, Integer> downloaders = new HashMap<Integer, Integer>();
                     downloaders.put(2, 0);
-                    BootstrapHeartbeat hb1 = new BootstrapHeartbeat((short) 1500,
+                    BootstrapHeartbeat hb1 = new BootstrapHeartbeat(false, (short) 1500,
                             seeds, downloaders, gAddr1);
                     trigger(hb1, bootstrapClient.getPositive(BootstrapPort.class));
 

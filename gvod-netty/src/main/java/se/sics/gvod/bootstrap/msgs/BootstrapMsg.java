@@ -138,18 +138,25 @@ public class BootstrapMsg {
     public static final class Heartbeat extends DirectMsgNetty.Oneway {
 
         private static final long serialVersionUID = -6543349790434L;
+        private final boolean helper;
         private final short mtu;
         private final Set<Integer> seeders;
         private final Map<Integer, Integer> downloaders;
 
         public Heartbeat(VodAddress source, VodAddress destination,
-                short mtu, Set<Integer> seeders, Map<Integer, Integer> downloaders) {
+                boolean helper, short mtu, 
+                Set<Integer> seeders, Map<Integer, Integer> downloaders) {
             super(source, destination);
+            this.helper = helper;
             this.seeders = seeders;
             this.downloaders = downloaders;
             this.mtu = mtu;
         }
 
+        public boolean isHelper() {
+            return helper;
+        }
+        
         public short getMtu() {
             return mtu;
         }
@@ -165,6 +172,7 @@ public class BootstrapMsg {
         @Override
         public int getSize() {
             return super.getHeaderSize()
+                    + 1 /* helper */
                     + 2 /* mtu */
                     + UserTypesEncoderFactory.getCollectionIntsLength(seeders)
                     + UserTypesEncoderFactory.getMapIntIntsLength(downloaders)
@@ -174,6 +182,7 @@ public class BootstrapMsg {
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buf = createChannelBufferWithHeader();
+            UserTypesEncoderFactory.writeBoolean(buf, helper);
             buf.writeShort(mtu);
             UserTypesEncoderFactory.writeCollectionInts(buf, seeders);
             UserTypesEncoderFactory.writeMapIntInts(buf, downloaders);
@@ -188,7 +197,7 @@ public class BootstrapMsg {
         @Override
         public RewriteableMsg copy() {
             // neither seeders or downloaders will be modified, so this is safe.
-            Heartbeat hb = new Heartbeat(vodSrc, vodDest, mtu, seeders, downloaders);
+            Heartbeat hb = new Heartbeat(vodSrc, vodDest, helper, mtu, seeders, downloaders);
             hb.setTimeoutId(timeoutId);
             return hb;
         }
@@ -396,12 +405,12 @@ public class BootstrapMsg {
     
     
     
-    public static final class HelperDownloadRequest extends DirectMsgNetty.Request {
+    public static final class HelperDownload extends DirectMsgNetty.Oneway {
 
         private static final long serialVersionUID = -333221149790434L;
         private final String url;
 
-        public HelperDownloadRequest(VodAddress source, VodAddress destination, String url) {
+        public HelperDownload(VodAddress source, VodAddress destination, String url) {
             super(source, destination);
             if (url == null) {
                 throw new NullPointerException("Url cannot be null for video to download");
@@ -434,50 +443,50 @@ public class BootstrapMsg {
 
         @Override
         public RewriteableMsg copy() {
-            HelperDownloadRequest copy = new HelperDownloadRequest(vodSrc, vodDest, url);
+            HelperDownload copy = new HelperDownload(vodSrc, vodDest, url);
             copy.setTimeoutId(timeoutId);
             return copy;
             
         }
     }    
     
-    public static final class HelperDownloadResponse extends DirectMsgNetty.Response {
-
-        private static final long serialVersionUID = -74747474149790434L;
-        final boolean success;
-        
-        public HelperDownloadResponse(VodAddress source, VodAddress destination,
-                boolean success, TimeoutId timeoutId) {
-            super(source, destination, timeoutId);
-            this.success = success;
-        }
-
-        @Override
-        public int getSize() {
-            return super.getHeaderSize()
-                    + 1 /* success */
-                    ;
-        }
-
-        public boolean isSuccess() {
-            return success;
-        }
-
-        @Override
-        public ByteBuf toByteArray() throws MessageEncodingException {
-            ByteBuf buf = createChannelBufferWithHeader();
-            UserTypesEncoderFactory.writeBoolean(buf, success);
-            return buf;
-        }
-
-        @Override
-        public byte getOpcode() {
-            return VodMsgFrameDecoder.BOOTSTRAP_CLOUD_HELPER_DOWNLOAD_RESPONSE;
-        }
-
-        @Override
-        public RewriteableMsg copy() {
-            return new HelperDownloadResponse(vodSrc, vodDest, success, timeoutId);
-        }
-    }    
+//    public static final class HelperDownloadResponse extends DirectMsgNetty.Response {
+//
+//        private static final long serialVersionUID = -74747474149790434L;
+//        final boolean success;
+//        
+//        public HelperDownloadResponse(VodAddress source, VodAddress destination,
+//                boolean success, TimeoutId timeoutId) {
+//            super(source, destination, timeoutId);
+//            this.success = success;
+//        }
+//
+//        @Override
+//        public int getSize() {
+//            return super.getHeaderSize()
+//                    + 1 /* success */
+//                    ;
+//        }
+//
+//        public boolean isSuccess() {
+//            return success;
+//        }
+//
+//        @Override
+//        public ByteBuf toByteArray() throws MessageEncodingException {
+//            ByteBuf buf = createChannelBufferWithHeader();
+//            UserTypesEncoderFactory.writeBoolean(buf, success);
+//            return buf;
+//        }
+//
+//        @Override
+//        public byte getOpcode() {
+//            return VodMsgFrameDecoder.BOOTSTRAP_CLOUD_HELPER_DOWNLOAD_RESPONSE;
+//        }
+//
+//        @Override
+//        public RewriteableMsg copy() {
+//            return new HelperDownloadResponse(vodSrc, vodDest, success, timeoutId);
+//        }
+//    }    
 }

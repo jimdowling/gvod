@@ -21,20 +21,20 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.StringTokenizer;
 import java.util.logging.Level;
+import javax.swing.ComboBoxModel;
 import javax.swing.ImageIcon;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
+import javax.swing.event.ListDataListener;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
-import org.mortbay.util.URIUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.config.BaseCommandLineConfig;
 import se.sics.gvod.config.VodConfig;
 import se.sics.gvod.system.swing.SwingComponent;
-import se.sics.gvod.system.util.FileUtils;
 
 /**
  *
@@ -79,8 +79,6 @@ public class CreateTorrentDialog extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        okButton = new javax.swing.JButton();
-        cancelButton = new javax.swing.JButton();
         torrentFilePanel = new javax.swing.JPanel();
         selectVideoFileButton = new javax.swing.JButton();
         videoDescriptionField = new javax.swing.JTextField();
@@ -88,34 +86,20 @@ public class CreateTorrentDialog extends javax.swing.JDialog {
         videoFilePathTextField = new javax.swing.JTextField();
         jLabel1 = new javax.swing.JLabel();
         videoWidthComboBox = new javax.swing.JComboBox();
-        bootstrapPanel = new javax.swing.JPanel();
-        bootstrapServerComboBox = new javax.swing.JComboBox();
-        bootstrapLabel = new javax.swing.JLabel();
         optionalPanel = new javax.swing.JPanel();
         thumbnailTextField = new javax.swing.JTextField();
         testThumbnailButton = new javax.swing.JButton();
         thumbLoadingCountLabel = new javax.swing.JLabel();
-        streamingConversionProgressBar = new javax.swing.JProgressBar();
         jLabel2 = new javax.swing.JLabel();
+        jPanel1 = new javax.swing.JPanel();
+        okButton = new javax.swing.JButton();
+        cancelButton = new javax.swing.JButton();
+        streamingConversionProgressBar = new javax.swing.JProgressBar();
 
         setTitle("Publish a Video");
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 closeDialog(evt);
-            }
-        });
-
-        okButton.setText("Share Video");
-        okButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                okButtonActionPerformed(evt);
-            }
-        });
-
-        cancelButton.setText("Cancel");
-        cancelButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                cancelButtonActionPerformed(evt);
             }
         });
 
@@ -189,37 +173,6 @@ public class CreateTorrentDialog extends javax.swing.JDialog {
                 .addContainerGap())
         );
 
-        bootstrapPanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Select Bootstrap Server"));
-
-        bootstrapServerComboBox.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "193.10.64.216", "193.10.64.109", " " }));
-        bootstrapServerComboBox.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                bootstrapServerComboBoxActionPerformed(evt);
-            }
-        });
-
-        bootstrapLabel.setText("Select Bootstrap Server:");
-
-        javax.swing.GroupLayout bootstrapPanelLayout = new javax.swing.GroupLayout(bootstrapPanel);
-        bootstrapPanel.setLayout(bootstrapPanelLayout);
-        bootstrapPanelLayout.setHorizontalGroup(
-            bootstrapPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, bootstrapPanelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(bootstrapLabel)
-                .addGap(31, 31, 31)
-                .addComponent(bootstrapServerComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, 274, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-        bootstrapPanelLayout.setVerticalGroup(
-            bootstrapPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(bootstrapPanelLayout.createSequentialGroup()
-                .addGroup(bootstrapPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(bootstrapServerComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(bootstrapLabel))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-
         optionalPanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Enter URL for Thumbnail of Video"));
 
         thumbnailTextField.setText("http://clommunity.blog.pangea.org/wp-content/ata-images/clommunity_200.png");
@@ -261,7 +214,42 @@ public class CreateTorrentDialog extends javax.swing.JDialog {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
-        jLabel2.setText("Conversion to streaming :");
+        okButton.setText("Share Video");
+        okButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                okButtonActionPerformed(evt);
+            }
+        });
+
+        cancelButton.setText("Cancel");
+        cancelButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                cancelButtonActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
+        jPanel1.setLayout(jPanel1Layout);
+        jPanel1Layout.setHorizontalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(okButton)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(cancelButton)
+                .addContainerGap())
+        );
+        jPanel1Layout.setVerticalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addContainerGap(50, Short.MAX_VALUE)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(okButton)
+                    .addComponent(cancelButton)))
+        );
+
+        streamingConversionProgressBar.setToolTipText("Upload progress bar");
+        streamingConversionProgressBar.setName("Progress of conversion to streaming format"); // NOI18N
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
@@ -272,18 +260,15 @@ public class CreateTorrentDialog extends javax.swing.JDialog {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(torrentFilePanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(optionalPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(bootstrapPanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                        .addComponent(okButton)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(cancelButton)))
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(streamingConversionProgressBar, javax.swing.GroupLayout.PREFERRED_SIZE, 395, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(256, 256, 256)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(layout.createSequentialGroup()
+                                .addComponent(jLabel2)
+                                .addGap(0, 0, Short.MAX_VALUE))
+                            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
                 .addContainerGap())
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addGap(40, 40, 40)
-                .addComponent(jLabel2)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(streamingConversionProgressBar, javax.swing.GroupLayout.PREFERRED_SIZE, 531, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -293,19 +278,20 @@ public class CreateTorrentDialog extends javax.swing.JDialog {
                 .addGap(16, 16, 16)
                 .addComponent(optionalPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
-                .addComponent(bootstrapPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 60, Short.MAX_VALUE)
+                .addComponent(jLabel2)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(streamingConversionProgressBar, javax.swing.GroupLayout.DEFAULT_SIZE, 33, Short.MAX_VALUE)
-                    .addComponent(jLabel2))
-                .addGap(34, 34, 34)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(okButton)
-                    .addComponent(cancelButton))
-                .addContainerGap())
+                    .addGroup(layout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addContainerGap())
+                    .addGroup(layout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(streamingConversionProgressBar, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
         );
 
         torrentFilePanel.getAccessibleContext().setAccessibleName("Video File");
+        streamingConversionProgressBar.getAccessibleContext().setAccessibleName("Progress of conversion to streaming format");
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
@@ -459,10 +445,6 @@ public class CreateTorrentDialog extends javax.swing.JDialog {
 
     }//GEN-LAST:event_testThumbnailButtonActionPerformed
 
-    private void bootstrapServerComboBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bootstrapServerComboBoxActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_bootstrapServerComboBoxActionPerformed
-
     private void videoFilePathTextFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_videoFilePathTextFieldActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_videoFilePathTextFieldActionPerformed
@@ -481,13 +463,11 @@ public class CreateTorrentDialog extends javax.swing.JDialog {
         dispose();
     }
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JLabel bootstrapLabel;
-    private javax.swing.JPanel bootstrapPanel;
-    private javax.swing.JComboBox bootstrapServerComboBox;
     private javax.swing.JButton cancelButton;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
+    private javax.swing.JPanel jPanel1;
     private javax.swing.JButton okButton;
     private javax.swing.JPanel optionalPanel;
     private javax.swing.JButton selectVideoFileButton;
@@ -502,11 +482,8 @@ public class CreateTorrentDialog extends javax.swing.JDialog {
     // End of variables declaration//GEN-END:variables
     private int returnStatus = RET_CANCEL;
 
-    private String getVideoFile() throws IOException {
-        return videoFile.getCanonicalPath();
+    private String getServerName() {
+        return VodConfig.getBootstrapServer().getIp().getHostAddress();
     }
 
-    private String getServerName() {
-        return bootstrapServerComboBox.getSelectedItem().toString();
-    }
 }

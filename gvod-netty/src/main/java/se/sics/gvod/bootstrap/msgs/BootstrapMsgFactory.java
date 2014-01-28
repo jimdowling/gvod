@@ -67,10 +67,11 @@ public class BootstrapMsgFactory {
 
         @Override
         protected BootstrapMsg.Heartbeat process(ByteBuf buffer) throws MessageDecodingException {
+            boolean helper = UserTypesDecoderFactory.readBoolean(buffer);
             short mtu = buffer.readShort();
             Set<Integer> seeders = UserTypesDecoderFactory.readSetInts(buffer);
             Map<Integer,Integer> downloaders = UserTypesDecoderFactory.readMapIntInts(buffer);
-            return new BootstrapMsg.Heartbeat(vodSrc, vodDest, mtu, seeders, downloaders);
+            return new BootstrapMsg.Heartbeat(vodSrc, vodDest, helper, mtu, seeders, downloaders);
         }
     }
     
@@ -143,44 +144,44 @@ public class BootstrapMsgFactory {
         }
     }
     
-    public static class HelperDownloadRequest extends DirectMsgNettyFactory.Request {
+    public static class HelperDownload extends DirectMsgNettyFactory.Oneway {
 
-        private HelperDownloadRequest() {
+        private HelperDownload() {
         }
 
-        public static BootstrapMsg.HelperDownloadRequest fromBuffer(ByteBuf buffer) 
+        public static BootstrapMsg.HelperDownload fromBuffer(ByteBuf buffer) 
                 throws MessageDecodingException {
-            return  (BootstrapMsg.HelperDownloadRequest) 
-                    new BootstrapMsgFactory.HelperDownloadRequest().decode(buffer);
+            return  (BootstrapMsg.HelperDownload) 
+                    new BootstrapMsgFactory.HelperDownload().decode(buffer);
         }
 
         @Override
-        protected BootstrapMsg.HelperDownloadRequest process(ByteBuf buffer) 
+        protected BootstrapMsg.HelperDownload process(ByteBuf buffer) 
                 throws MessageDecodingException {
             String url = UserTypesDecoderFactory.readStringLength256(buffer);
-            return new BootstrapMsg.HelperDownloadRequest(vodSrc, vodDest, url);
+            return new BootstrapMsg.HelperDownload(vodSrc, vodDest, url);
         }
     }    
     
     
-    public static class HelperDownloadResponse extends DirectMsgNettyFactory.Response {
-
-        private HelperDownloadResponse() {
-        }
-
-        public static BootstrapMsg.HelperDownloadResponse fromBuffer(ByteBuf buffer) 
-                throws MessageDecodingException {
-            return  
-                    (BootstrapMsg.HelperDownloadResponse) 
-                    new BootstrapMsgFactory.HelperDownloadResponse().decode(buffer);
-        }
-
-        @Override
-        protected BootstrapMsg.HelperDownloadResponse process(ByteBuf buffer) 
-                throws MessageDecodingException {
-            boolean success = UserTypesDecoderFactory.readBoolean(buffer);
-            return new BootstrapMsg.HelperDownloadResponse(vodSrc, vodDest, success, timeoutId);
-        }
-    }        
+//    public static class HelperDownloadResponse extends DirectMsgNettyFactory.Response {
+//
+//        private HelperDownloadResponse() {
+//        }
+//
+//        public static BootstrapMsg.HelperDownloadResponse fromBuffer(ByteBuf buffer) 
+//                throws MessageDecodingException {
+//            return  
+//                    (BootstrapMsg.HelperDownloadResponse) 
+//                    new BootstrapMsgFactory.HelperDownloadResponse().decode(buffer);
+//        }
+//
+//        @Override
+//        protected BootstrapMsg.HelperDownloadResponse process(ByteBuf buffer) 
+//                throws MessageDecodingException {
+//            boolean success = UserTypesDecoderFactory.readBoolean(buffer);
+//            return new BootstrapMsg.HelperDownloadResponse(vodSrc, vodDest, success, timeoutId);
+//        }
+//    }        
     
 };
