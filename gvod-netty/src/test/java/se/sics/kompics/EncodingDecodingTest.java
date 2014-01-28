@@ -46,6 +46,7 @@ import se.sics.gvod.common.hp.HPMechanism;
 import se.sics.gvod.common.hp.HPRole;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
+import se.sics.gvod.common.msgs.NatReportMsgFactory;
 import se.sics.gvod.common.msgs.RelayMsgNetty;
 import se.sics.gvod.net.VodMsgFrameDecoder;
 import se.sics.gvod.net.msgs.NatMsg;
@@ -486,6 +487,69 @@ public class EncodingDecodingTest {
         }
 
     }
+    
+    
+   @Test
+    public void helperHbMsgTest() {
+        BootstrapMsg.HelperHeartbeat msg = new BootstrapMsg.HelperHeartbeat(gSrc, gSrc, true);
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            BootstrapMsg.HelperHeartbeat res =
+                    BootstrapMsgFactory.HelperHeartbeat.fromBuffer(buffer);
+            compareNatMsgs(msg, res);
+            assert(msg.isSpace() == res.isSpace());
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+    
+   @Test
+    public void helperDownloadReqTest() {
+        BootstrapMsg.HelperDownloadRequest msg = 
+                new BootstrapMsg.HelperDownloadRequest(gSrc, gSrc, "gvod://myvideo/torrent.data");
+        msg.setTimeoutId(UUID.nextUUID());
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            BootstrapMsg.HelperDownloadRequest res =
+                    BootstrapMsgFactory.HelperDownloadRequest.fromBuffer(buffer);
+            compareNatMsgs(msg, res);
+            assert(msg.getUrl().compareTo(res.getUrl()) == 0);
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+    
+   @Test
+    public void helperDownloadRespTest() {
+        BootstrapMsg.HelperDownloadResponse msg = 
+                new BootstrapMsg.HelperDownloadResponse(gSrc, gSrc, true, UUID.nextUUID());
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            BootstrapMsg.HelperDownloadResponse res =
+                    BootstrapMsgFactory.HelperDownloadResponse.fromBuffer(buffer);
+            compareNatMsgs(msg, res);
+            assert(msg.isSuccess() == res.isSuccess());
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+    
+    
 
     @Test
     public void monitorMsg() {

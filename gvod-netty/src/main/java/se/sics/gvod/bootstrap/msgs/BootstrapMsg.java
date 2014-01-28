@@ -143,8 +143,7 @@ public class BootstrapMsg {
         private final Map<Integer, Integer> downloaders;
 
         public Heartbeat(VodAddress source, VodAddress destination,
-                short mtu,
-                Set<Integer> seeders, Map<Integer, Integer> downloaders) {
+                short mtu, Set<Integer> seeders, Map<Integer, Integer> downloaders) {
             super(source, destination);
             this.seeders = seeders;
             this.downloaders = downloaders;
@@ -353,6 +352,132 @@ public class BootstrapMsg {
         }
     }
     
+
+    
+    public static final class HelperHeartbeat extends DirectMsgNetty.Oneway {
+
+        private static final long serialVersionUID = 433455863400423L;
+        private final boolean space;
+        
+        public HelperHeartbeat(VodAddress source, VodAddress destination, boolean space) {
+            super(source, destination);
+            this.space = space;
+        }
+        
+        @Override
+        public int getSize() {
+            return super.getHeaderSize()
+                    + 1 // space
+                    ;
+        }
+
+        @Override
+        public ByteBuf toByteArray() throws MessageEncodingException {
+            ByteBuf buf = createChannelBufferWithHeader();
+            UserTypesEncoderFactory.writeBoolean(buf, space);
+            return buf;
+        }
+
+        public boolean isSpace() {
+            return space;
+        }
+
+        @Override
+        public byte getOpcode() {
+            return VodMsgFrameDecoder.BOOTSTRAP_CLOUD_HELPER_HB;
+        }
+
+        @Override
+        public RewriteableMsg copy() {
+            HelperHeartbeat gpr = new HelperHeartbeat(vodSrc, vodDest, space);
+            return gpr;
+        }
+    }    
     
     
+    
+    public static final class HelperDownloadRequest extends DirectMsgNetty.Request {
+
+        private static final long serialVersionUID = -333221149790434L;
+        private final String url;
+
+        public HelperDownloadRequest(VodAddress source, VodAddress destination, String url) {
+            super(source, destination);
+            if (url == null) {
+                throw new NullPointerException("Url cannot be null for video to download");
+            }
+            this.url = url;
+        }
+
+        @Override
+        public int getSize() {
+            return super.getHeaderSize() 
+                    + UserTypesEncoderFactory.getStringLength256(url)
+                    ;
+        }
+
+        public String getUrl() {
+            return url;
+        }
+
+        @Override
+        public ByteBuf toByteArray() throws MessageEncodingException {
+            ByteBuf buf = createChannelBufferWithHeader();
+            UserTypesEncoderFactory.writeStringLength256(buf, url);
+            return buf;
+        }
+
+        @Override
+        public byte getOpcode() {
+            return VodMsgFrameDecoder.BOOTSTRAP_CLOUD_HELPER_DOWNLOAD_REQUEST;
+        }
+
+        @Override
+        public RewriteableMsg copy() {
+            HelperDownloadRequest copy = new HelperDownloadRequest(vodSrc, vodDest, url);
+            copy.setTimeoutId(timeoutId);
+            return copy;
+            
+        }
+    }    
+    
+    public static final class HelperDownloadResponse extends DirectMsgNetty.Response {
+
+        private static final long serialVersionUID = -74747474149790434L;
+        final boolean success;
+        
+        public HelperDownloadResponse(VodAddress source, VodAddress destination,
+                boolean success, TimeoutId timeoutId) {
+            super(source, destination, timeoutId);
+            this.success = success;
+        }
+
+        @Override
+        public int getSize() {
+            return super.getHeaderSize()
+                    + 1 /* success */
+                    ;
+        }
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        @Override
+        public ByteBuf toByteArray() throws MessageEncodingException {
+            ByteBuf buf = createChannelBufferWithHeader();
+            UserTypesEncoderFactory.writeBoolean(buf, success);
+            return buf;
+        }
+
+        @Override
+        public byte getOpcode() {
+            return VodMsgFrameDecoder.BOOTSTRAP_CLOUD_HELPER_DOWNLOAD_RESPONSE;
+        }
+
+        @Override
+        public RewriteableMsg copy() {
+            return new HelperDownloadResponse(vodSrc, vodDest, success, timeoutId);
+        }
+    }    
 }

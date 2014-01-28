@@ -47,6 +47,10 @@ public class VodMsgFrameDecoder extends BaseMsgFrameDecoder {
     public static final byte BOOTSTRAP_HEARTBEAT = 0x1e;
     public static final byte BOOTSTRAP_ADD_OVERLAY_REQUEST = 0x1f;
     public static final byte BOOTSTRAP_ADD_OVERLAY_RESPONSE = 0x09;
+    public static final byte BOOTSTRAP_CLOUD_HELPER_HB = 0x59;
+    public static final byte BOOTSTRAP_CLOUD_HELPER_DOWNLOAD_REQUEST = 0x5a;
+    public static final byte BOOTSTRAP_CLOUD_HELPER_DOWNLOAD_RESPONSE = 0x5b;
+    
     // MONITOR MSGS
     public static final byte MONITOR_MSG = 0x0a;
     // VIDEO MSGS
@@ -124,6 +128,13 @@ public class VodMsgFrameDecoder extends BaseMsgFrameDecoder {
                 return BootstrapMsgFactory.AddOverlayReq.fromBuffer(buffer);
             case BOOTSTRAP_ADD_OVERLAY_RESPONSE:
                 return BootstrapMsgFactory.AddOverlayResp.fromBuffer(buffer);
+            case BOOTSTRAP_CLOUD_HELPER_HB:
+                return BootstrapMsgFactory.HelperHeartbeat.fromBuffer(buffer);
+            case BOOTSTRAP_CLOUD_HELPER_DOWNLOAD_REQUEST:
+                return BootstrapMsgFactory.HelperDownloadRequest.fromBuffer(buffer);
+            case BOOTSTRAP_CLOUD_HELPER_DOWNLOAD_RESPONSE:
+                return BootstrapMsgFactory.HelperDownloadResponse.fromBuffer(buffer);
+                
             // VIDEO MSGS
             case VIDEO_CONNECTION_REQUEST:
                 return VideoConnectionMsgFactory.Request.fromBuffer(buffer);
