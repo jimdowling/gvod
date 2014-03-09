@@ -129,7 +129,6 @@ public class SwingMain extends ComponentDefinition implements GMain {
 
     static final int MAX_NUM_HELPER_VIDEOS = 20;
     
-    static boolean isOpenServer = false;
     static boolean offline = false;
     static String openServerIp;
     static int openServerId;
@@ -194,7 +193,8 @@ public class SwingMain extends ComponentDefinition implements GMain {
             }
             if (args.length > 0 && args[0].compareToIgnoreCase("true") == 0) {
                 int numArgs = 3;
-                isOpenServer = true;
+                VodConfig.OPEN_IP = true;
+                
                 myId = Integer.parseInt(args[1]);
                 String serverStr = args[2];
                 int idx = serverStr.lastIndexOf("@");
@@ -478,7 +478,7 @@ public class SwingMain extends ComponentDefinition implements GMain {
             RendezvousServerConfiguration rsc = RendezvousServerConfiguration.build();
             ParentMakerConfiguration pmc = ParentMakerConfiguration.build();
 
-            if (isOpenServer) {
+            if (VodConfig.isOpenIp()) {
                 try {
                     openNodes.clear();
                     InetAddress sIp = InetAddress.getByName(openServerIp);

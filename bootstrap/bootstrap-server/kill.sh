@@ -6,5 +6,5 @@ user=`cut -d " " -f 2 machines`
 ssh $user@${host} "cd boot ; ./kill.sh "
 
 echo ""
-echo "See log file: $user@$host ~/boot"
+echo "See log file: ssh $user@$host \" tail -200f ~/boot/boot.log\""
 echo ""
