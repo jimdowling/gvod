@@ -804,7 +804,6 @@ public class BootstrapServerMysql extends ComponentDefinition {
             logger.debug("Number of rows inserted/updated for overlay_details: " + numRowsAffected);
             logger.debug("Inserted overlay_details: " + overlayId + ", " + overlayName + ", "
                     + description + ", " + imageUrl);
-
         } catch (SQLException ex) {
             // handle any errors
             logger.warn("SQLException: " + ex.getMessage());
