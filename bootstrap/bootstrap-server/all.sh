@@ -2,4 +2,4 @@
 set -e
 ./build.sh
 ./copy.sh
-./start.sh
+./start.sh $1
