@@ -1,4 +1,7 @@
 #!/bin/bash
 # -Xrunjdwp:server=y,transport=dt_socket,address=4000,suspend=n 
-nohup java -Xms256m -Xmx1g -Xdebug -jar boot.jar -jdbcurl jdbc:mysql://cloud11.sics.se/gvod -user kthfs -pwd $1 > boot.log &
+PWD=$1
+shift
+
+nohup java -Xms256m -Xmx1g -Xdebug -jar boot.jar -jdbcurl jdbc:mysql://cloud11.sics.se/gvod -user kthfs -pwd $PWD $@ > boot.log &
 echo $! > ./boot.pid
