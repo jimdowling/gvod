@@ -1,4 +1,6 @@
 #!/bin/bash
 # -XX:MaxDirectMemorySize - puts an upper limit on the size of direct memory, and triggers GC when you reach that limit
-nohup java -Xms256m -Xmx1g -jar gvod.jar -torrent topgear.mp4 -movie ./topgear.mp4 -nogui  > gvod.log &
+VIDEO=$1
+shift
+nohup java -Xms256m -Xmx500m -jar gvod.jar -torrent $VIDEO -movie ./$VIDEO -nogui $@  > gvod.log &
 echo $! > ./gvod.pid
