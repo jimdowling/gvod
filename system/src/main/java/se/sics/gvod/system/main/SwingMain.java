@@ -184,6 +184,14 @@ public class SwingMain extends ComponentDefinition implements GMain {
         }
     }
 
+    /**
+     * To start a seeder, you need to start it as an '-openip' node. It should
+     * not run the stun protocol. You also need to pass it the address of another
+     * stunserver, as it needs another stunserver to provide its stun services. 
+     * Normal usage 
+     *  (where another stunserver is running on cloud7.sics.se with id 33):
+     * java -jar gvod.jar true 33 cloud7.sics.se
+     */
     public static void main(String[] args) {
         try {
             StringBuilder sb = new StringBuilder();
