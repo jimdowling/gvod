@@ -354,7 +354,8 @@ public class BootstrapServerMysql extends ComponentDefinition {
                         short mtu = rs.getShort(5);
                         int asn = rs.getInt(6);
                         int age = rs.getInt(7);
-                        age = age / 1000;
+                        // age in minutes
+                        age = (age / 1000) / 60;
                         if (age > 65535) {
                             age = 65535;
                         }
