@@ -24,7 +24,7 @@ public class BootstrapConfig extends BaseCommandLineConfig {
     public static final String DEFAULT_JDBC_URL = "jdbc:mysql://localhost/gvod";
     public static final String DEFAULT_MYSQL_USERNAME = "root";
     public static final String DEFAULT_MYSQL_PASSWORD = "";
-    public static final String DEFAULT_WEBSERVER_TORRENT_PATH = "/var/www/gvod";
+    public static final String DEFAULT_WEBSERVER_TORRENT_PATH = "/var/www";
     
     public static final int DEFAULT_BOOTSTRAP_EVICT_PERIOD = 20 * 60 * 1000 /* 20 minutes*/;
     public static final int DEFAULT_NUM_NODES_RETURNED = 15;
@@ -80,7 +80,7 @@ public class BootstrapConfig extends BaseCommandLineConfig {
         asnOption = new Option("asn", "use ASN numbers when matching peers");
         options.addOption(asnOption);
 
-        torrentsOption = new Option("torrentspath", true, "webserver torrents path");
+        torrentsOption = new Option("torrentspath", true, "webserver torrents path (default /var/www)");
         torrentsOption.setArgName("torrentspath");
         options.addOption(torrentsOption);        
         

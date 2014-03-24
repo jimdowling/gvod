@@ -32,7 +32,6 @@ import se.sics.gvod.bootstrap.msgs.BootstrapMsg;
 
 import se.sics.kompics.Handler;
 import se.sics.gvod.address.Address;
-import se.sics.gvod.bootstrap.msgs.BootstrapMsg.HelperDownload;
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.UtilityVod;
 import se.sics.gvod.common.msgs.NatReportMsg;
@@ -57,6 +56,12 @@ import se.sics.kompics.web.WebResponse;
 
 /**
  * The <code>BootstrapServer</code> class.
+ * 
+ * Requirements: 
+ * This Bootstrap server assumes that there is a webserver running on the same
+ * host that can server files from 'torrentspath' directory - default /var/www (from Apache2). 
+ * The userid running this Bootstrap server should have write permissions to the 'torrentspath' directory.
+ * You can set the 'torrentspath' directory as a switch.
  *
  *
  * CREATE TABLE nodes ( id INT NOT NULL, ip INT UNSIGNED NOT NULL, port SMALLINT
@@ -335,7 +340,7 @@ public class BootstrapServerMysql extends ComponentDefinition {
                     + " (NOW()-joined) "
                     + "FROM nodes WHERE ").
                     append("id != ").append(id).
-                    append(" AND open=TRUE AND (NOW()-last_ping) < 120000 ORDER BY RAND() LIMIT ").
+                    append(" AND open=TRUE AND (NOW()-last_ping) < 300000 ORDER BY RAND() LIMIT ").
                     append(BootstrapConfig.DEFAULT_NUM_NODES_RETURNED);
 
             // OPEN nat =>  select * from nodes where (nat_type >> 7 & 1) = 1;
