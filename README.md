@@ -1,24 +1,23 @@
-GVod Client Installation Instructions for Firefox
-----
+#### GVod Client Installation Instructions for Firefox
+
 Click on this link to install the plugin:
 http://snurran.sics.se/gvod/gvod.xpi
 
-Software Requirements to build GVod
-----
+#### Software Requirements to build GVod
 
 maven 2/3, jdk 1.7+ 
 apt-get install maven2 openjdk-7-jdk
 
 
-GVod Client Build Instructions
-----
+#### GVod Client Build Instructions
+
 export MAVEN_OPTS="-Xmx2048m -XX:MaxPermSize=512m"
 mvn clean install
 cd system
 mvn assembly:assembly
 
 
-### GVod Firefox Plugin Build Instructions
+#### GVod Firefox Plugin Build Instructions
 
 Note, this script will also try to upload the constructed
 .xpi file to the host used to distribute the plugin.
@@ -50,12 +49,9 @@ java -jar target/bootstrap-server-1.0-SNAPSHOT.jar -jdbcurl jdbc:mysql://localho
 
 
 
-Credits
-====
-
+###### Credits
 ICONs URL:
 http://www.iconarchive.com/show/super-mono-3d-icons-by-double-j-design.4.html
-
 ICONs designed by:
 http://www.doublejdesign.co.uk 
 licensed under creative commons license.
