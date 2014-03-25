@@ -2510,8 +2510,6 @@ public final class Vod extends MsgRetryComponent {
 
     public void play() {
         read = true;
-        // TODO JIM -remove this and fix the buffering time!
-//        buffering.set(false);
         if (buffering.get()
                 && (storage.getBitField().getFirstUncompletedPiece()
                 >= pieceToRead.get() + bufferingWindow || storage.complete()
@@ -2584,6 +2582,7 @@ public final class Vod extends MsgRetryComponent {
                 + utility.getChunk() + ";" + utility.getPiece() + ") " + duration + " " + freeRider,
                 durationToString(duration),
                 piecesFromUpperSet / piecesFromUtilitySet);
+         logger.info(compName + "Buffering time was: {}", bufferingTime);
 
         // write hash pieces to file when finished downloading.
         if (storage instanceof StorageMemMapWholeFile) {

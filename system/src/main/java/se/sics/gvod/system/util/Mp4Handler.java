@@ -247,23 +247,6 @@ public class Mp4Handler extends BaseHandler {
                     exchange.sendResponseHeaders(200 /* http error code */,
                             altLen);
                     writeProgressiveMp4(dataOut, mDatLen);
-//                    f = null;
-//                    try {
-//                        File file = new File("/tmp/mp4.mp4");
-//                        file.createNewFile();
-//                        f = new FileOutputStream(file);
-//                        df = new DataOutputStream(f);
-//                        writeSplitMp4(df);
-//                        writeMdatHeader(df, mDatOffset);
-//                    } catch (FileNotFoundException ex) {
-//                        java.util.logging.Logger.getLogger(Sender.class.getName()).log(Level.SEVERE, null, ex);
-//                    } catch (IOException ex) {
-//                        java.util.logging.Logger.getLogger(Sender.class.getName()).log(Level.SEVERE, null, ex);
-//                    } finally {
-//                        if (f != null) {
-// //                            f.close();
-//                        }
-//                    }
 
                 } else {
                     responseHeaders.set("Content-Length", "" + contentLength);
