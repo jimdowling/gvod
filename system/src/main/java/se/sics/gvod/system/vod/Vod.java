@@ -2582,7 +2582,8 @@ public final class Vod extends MsgRetryComponent {
                 + utility.getChunk() + ";" + utility.getPiece() + ") " + duration + " " + freeRider,
                 durationToString(duration),
                 piecesFromUpperSet / piecesFromUtilitySet);
-         logger.info(compName + "Buffering time was: {}", bufferingTime);
+         logger.info(compName + "Download time: {}  , Buffering time: {}", 
+                 durationToString(duration), bufferingTime);
 
         // write hash pieces to file when finished downloading.
         if (storage instanceof StorageMemMapWholeFile) {
