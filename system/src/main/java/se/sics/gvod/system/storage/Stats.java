@@ -219,7 +219,7 @@ public class Stats {
             }
             for (int i = newUtility.getChunk();
                     i < lim; i++) {
-                if (!bitField.getChunk(i)) {
+                if (!bitField.hasChunk(i)) {
                     for (int j = i * BitField.NUM_PIECES_PER_CHUNK;
                         j < i * BitField.NUM_PIECES_PER_CHUNK + BitField.NUM_PIECES_PER_CHUNK;
                         j++) {
@@ -248,7 +248,7 @@ public class Stats {
             }
             for (int i = oldUtility + newUtility.getOffset();
                     i < lim; i++) {
-                if (!bitField.getChunk(i)) {
+                if (!bitField.hasChunk(i)) {
                     for (int j = i * BitField.NUM_PIECES_PER_CHUNK;
                         j < i * BitField.NUM_PIECES_PER_CHUNK + BitField.NUM_PIECES_PER_CHUNK;
                         j++) {

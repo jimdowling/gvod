@@ -48,7 +48,7 @@ public class Sender extends Thread implements Thread.UncaughtExceptionHandler {
         logger.info("SENDER THREAD (http server) STARTING");
 
         while (gvod.getNextPieceToSend() == 0
-                || gvod.getNextPieceToSend() < gvod.getStorage().getBitField().pieceFieldSize()) {
+                || gvod.getNextPieceToSend() < gvod.getStorage().getBitField().numberPieces()) {
             try {
                 if (!gvod.isBuffering()) {
 

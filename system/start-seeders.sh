@@ -10,6 +10,6 @@ parallel-ssh -h ./seeders -l $id "cd vod ; ./kill.sh ; ./seeder.sh $@"
 
 host=`cut -d " " -f 1 seeders`
 echo ""
-echo "See log file: ${id}@${host} ~/vod"
+echo "See log file: ssh ${id}@${host} \"tail -200 ~/vod/gvod.log\""
 echo ""
 

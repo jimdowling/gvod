@@ -47,6 +47,7 @@ public class StorageMemMapWholeFile implements Storage {
 
     private static final int SUBPIECE_SIZE = 1024;
     private MetaInfoExec metainfo;
+    // TODO - get rid of needed here...
     private int needed;
     private String name;
     private final String baseDir;

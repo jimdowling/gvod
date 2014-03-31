@@ -117,8 +117,7 @@ import se.sics.kompics.Positive;
 import se.sics.kompics.Stop;
 
 /**
- * The
- * <code>GVod</code> class.
+ * The <code>GVod</code> class.
  *
  * @author Gautier Berthou
  * @author Jim Dowling
@@ -181,11 +180,10 @@ public final class Vod extends MsgRetryComponent {
     private boolean seeder = false;
     private long bufferingTime = 0;
     private Random random;
-    private boolean finished = false;
     private int bufferingWindow;
     private int commWinSize;
     private long bW;
-    private int time = 0;
+    private int time = 1;
     private boolean freeRider;
     private List<VodAddress> choked;
     private Map<VodAddress, Long> downloadedFrom;
@@ -197,7 +195,7 @@ public final class Vod extends MsgRetryComponent {
     private Map<Integer, VodDescriptor> fingers = new HashMap<Integer, VodDescriptor>();
     private boolean rebootstrap = false;
     private Sender sender;
-    private boolean read = false;
+//    private boolean read = false;
     private boolean simulation;
     private Vod comp;
     private int ackTimeout;
@@ -269,11 +267,10 @@ public final class Vod extends MsgRetryComponent {
             logger.trace(compName + "handle setsInit");
             self = init.getSelf();
             config = init.getConfig();
-//            selfNoParents = new SelfNoParents(self.getAddress());
             simulation = init.isSimulation();
-            if (simulation) {
-                read = true;
-            }
+//            if (simulation) {
+//                read = true;
+//            }
             compName = "(" + self.getId() + "," + self.getOverlayId() + ") ";
             overhead = 20;
             bitTorrentSetSize = config.getBitTorrentSetSize();
@@ -323,7 +320,7 @@ public final class Vod extends MsgRetryComponent {
                                 + httpPath);
                         JwHttpServer.startOrUpdate(
                                 new InetSocketAddress(
-                                VodConfig.getMediaPort()),
+                                        VodConfig.getMediaPort()),
                                 httpPath,
                                 handler);
                         flag = false;
@@ -334,7 +331,6 @@ public final class Vod extends MsgRetryComponent {
                     i++;
                 }
             }
-
 
             store = new DescriptorStore(seed);
             bitTorrentSet = new BitTorrentSet(self, store, bitTorrentSetSize, seed);
@@ -380,10 +376,10 @@ public final class Vod extends MsgRetryComponent {
                             FileInputStream in = new FileInputStream(metaInfoFile);
                             metaInfo = new MetaInfoExec(in, torrentFileAddress);
                             if (MEM_MAP_VOD_FILES) {
-                                storage = new StorageMemMapWholeFile(metaInfo, 
+                                storage = new StorageMemMapWholeFile(metaInfo,
                                         metaInfoFile.getParent(), true);
                             } else {
-                                storage = new StorageFcByteBuf(metaInfo, 
+                                storage = new StorageFcByteBuf(metaInfo,
                                         metaInfoFile.getParent(), true);
                             }
                         } else {
@@ -398,7 +394,6 @@ public final class Vod extends MsgRetryComponent {
                             logger.warn(compName + "The movie file does not correspond to the data file the seed will quit for:"
                                     + metaInfo.getName());
 //                            delegator.doTrigger(new QuitCompleted(self.getId()), vod);
-//                            return;
 //                            seeder = false;
                         }
                     }
@@ -407,7 +402,7 @@ public final class Vod extends MsgRetryComponent {
                     self.updateUtility(new UtilityVod(VodConfig.SEEDER_UTILITY_VALUE));
                     UtilityVod utility = (UtilityVod) self.getUtility();
                     bitTorrentSet.getStats().changeUtility(utility.getChunk(), utility,
-                            storage.getBitField().pieceFieldSize(),
+                            storage.getBitField().numberPieces(),
                             storage.getBitField());
                     logger.info(compName + storage.getBitField().getHumanReadable2());
                 } catch (IOException e) {
@@ -424,10 +419,10 @@ public final class Vod extends MsgRetryComponent {
                     } else {
                         MetaInfoExec metaInfo = new MetaInfoExec(in, torrentFileAddress);
                         if (Vod.MEM_MAP_VOD_FILES) {
-                            storage = new StorageMemMapWholeFile(metaInfo, 
+                            storage = new StorageMemMapWholeFile(metaInfo,
                                     metaInfoFile.getParent(), false);
                         } else {
-                            storage = new StorageFcByteBuf(metaInfo, 
+                            storage = new StorageFcByteBuf(metaInfo,
                                     metaInfoFile.getParent(), false);
                         }
                     }
@@ -435,10 +430,9 @@ public final class Vod extends MsgRetryComponent {
                     storage.check(true);
                     rest.put(0, storage.needed());
                     UtilityVod myUtility = (UtilityVod) self.getUtility();
-                    myUtility.setChunk(storage.getBitField().
-                            setFirstUncompletedChunk(myUtility.getChunk()));
+                    myUtility.setChunk(storage.getBitField().setNextUncompletedChunk(myUtility.getChunk()));
                     bitTorrentSet.getStats().changeUtility(myUtility.getChunk() - myUtility.getOffset(),
-                            myUtility, storage.getBitField().pieceFieldSize(),
+                            myUtility, storage.getBitField().numberPieces(),
                             storage.getBitField());
 
                     logger.trace(compName + "print infos");
@@ -581,7 +575,7 @@ public final class Vod extends MsgRetryComponent {
              */
             if (choked.size() > 0 && time % (VodConfig.NUM_CYCLES_QUERY_GRANDCHILDREN * 3) == 0
                     && bitTorrentSet.size() + lowerSet.size() < bitTorrentSet.getMaxSize()) {
-                // Choke similar set
+                // Choke bittorrent set
                 // TODO: Should I not unchoke based on download stats for nodes?
                 int i = random.nextInt(choked.size());
                 toChoke.remove(choked.get(i));
@@ -618,8 +612,8 @@ public final class Vod extends MsgRetryComponent {
                 triggerDisconnectRequest(add, false);
             }
 
-            if (storage.getBitField().getFirstUncompletedPiece()
-                    >= storage.getBitField().pieceFieldSize() && !finished && !seeder) {
+            if (storage.getBitField().getNextUncompletedPiece()
+                    >= storage.getBitField().numberPieces() && !seeder) {
                 finishedDownloading();
             }
             startDownload();
@@ -672,26 +666,31 @@ public final class Vod extends MsgRetryComponent {
      */
     private void startDownload() {
         logger.trace(compName + "Starting download.");
+
+        // First check if all of the pieces have been downloaded
         if (storage.complete()) {
             logger.info(compName + "storage finished. Not downloading.");
             return;
         }
 
-        if (storage.getBitField().getFirstUncompletedPiece() >= storage.getBitField().pieceFieldSize()) {
+        // Check if the last piece has been downloaded (i may have skipped over some of the pieces).
+        if (storage.getBitField().getNextUncompletedPiece() >= storage.getBitField().numberPieces()) {
             logger.trace(compName + "storage finished or first uncompleted piece > lastPiece {}/{}",
-                    storage.getBitField().getFirstUncompletedPiece(),
-                    storage.getBitField().pieceFieldSize());
+                    storage.getBitField().getNextUncompletedPiece(),
+                    storage.getBitField().numberPieces());
             return;
         }
         boolean noDownloading = true;
 
         for (VodAddress add : upperSet.getAllAddress()) {
+
+            // TODO - Not DRY code - same code repeated in the next while-loop
             VodDescriptor peer = store.getVodDescriptorFromVodAddress(add);
             logger.info(compName + "Downloading: Pipeline size {} . Max size {}",
                     peer.getRequestPipeline().size(), peer.getPipeSize());
 
             peer.cleanupPipeline();
-//                cleanupPartialPieces();
+            cleanupPartialPieces();
             if (peer.getRequestPipeline().size() < peer.getPipeSize()) {
                 startDownloadingPieceFrom(add,
                         peer.getPipeSize() - peer.getRequestPipeline().size(),
@@ -700,9 +699,9 @@ public final class Vod extends MsgRetryComponent {
             } else {
                 peer.cleanupPipeline();
             }
-//                if (numRoundsNoPiecesDownloaded > 3) {
-//                    peer.clearPipeline();
-//                }
+            if (numRoundsNoPiecesDownloaded > 5) {
+                peer.clearPipeline();
+            }
         }
         List<VodAddress> list = bitTorrentSet.getAllAddress();
         while (list.size() > 0) {
@@ -713,19 +712,19 @@ public final class Vod extends MsgRetryComponent {
                     peer.getRequestPipeline().size(), peer.getPipeSize());
 
             peer.cleanupPipeline();
-//            if (peer.getRequestPipeline().size() < peer.getPipeSize()) {
-            startDownloadingPieceFrom(add,
-                    peer.getPipeSize() - peer.getRequestPipeline().size(),
-                    null, 0);
-            noDownloading = false;
-//            }
+            if (peer.getRequestPipeline().size() < peer.getPipeSize()) {
+                startDownloadingPieceFrom(add,
+                        peer.getPipeSize() - peer.getRequestPipeline().size(),
+                        null, 0);
+                noDownloading = false;
+            }
             list.remove(add);
-//                if (numRoundsNoPiecesDownloaded > 3) {
-//                    peer.clearPipeline();
-//                }
+            if (numRoundsNoPiecesDownloaded > 5) {
+                peer.clearPipeline();
+            }
         }
         if (noDownloading) {
-            logger.warn(compName + "No downloading. SimilarSet size {}. UpperSet size {}",
+            logger.warn(compName + "No downloading. BittorrentSet size {}. UpperSet size {}",
                     bitTorrentSet.size(), upperSet.size());
             if (numRoundsNoPiecesDownloaded > 3) {
                 numRoundsNoPiecesDownloaded = 0;
@@ -1386,12 +1385,12 @@ public final class Vod extends MsgRetryComponent {
                     ScheduleTimeout st = new ScheduleTimeout(ackTimeout);
                     st.setTimeoutEvent(new DataMsg.AckTimeout(st, peer, self.getOverlayId()));
                     TimeoutId newAckId = st.getTimeoutEvent().getTimeoutId();
-                    DataMsg.Response pieceMessage //                            = new DataMsg.Response(selfNoParents.getAddress(),
+                    DataMsg.Response pieceMessage
                             = new DataMsg.Response(self.getAddress(),
-                            peer, requestId, newAckId,
-                            subpiece,
-                            event.getSubpieceOffset(), piece,
-                            comWin.getSize(), System.currentTimeMillis());
+                                    peer, requestId, newAckId,
+                                    subpiece,
+                                    event.getSubpieceOffset(), piece,
+                                    comWin.getSize(), System.currentTimeMillis());
                     if (comWin.addMessage(newAckId, pieceMessage.getSize())) {
                         logger.debug(compName + "DataExchangeResponse for piece " + piece + "("
                                 + event.getSubpieceOffset() + ")");
@@ -1424,9 +1423,9 @@ public final class Vod extends MsgRetryComponent {
         public void handle(DataMsg.Response event) {
             logger.trace(compName + "DataMsg.Response from " + event.getVodSource().getId()
                     + " for subpiece " + event.getSubpieceOffset());
+
             msgReceived(event.getVodSource());
 
-            // TODO - am I cancelling the right timeoutId here?
             try {
                 // TODO - make this a 2-way delay estimate. event.getTime() is now the time
                 // of the sender's clock - not receivers clock.
@@ -1508,13 +1507,13 @@ public final class Vod extends MsgRetryComponent {
                     pieceCompleted(piece, peer);
                     partialPieces.remove(piece);
                     if (buffering.get()
-                            && (storage.getBitField().getFirstUncompletedPiece() >= pieceToRead.get() + bufferingWindow
+                            && (storage.getBitField().getNextUncompletedPiece() >= pieceToRead.get() + bufferingWindow
                             || storage.complete()
-                            || storage.getBitField().getFirstUncompletedPiece() >= storage.getBitField().pieceFieldSize())) {
+                            || storage.getBitField().getNextUncompletedPiece() >= storage.getBitField().numberPieces())) {
                         restartToRead();
                     } else {
                         logger.info(compName + "State: " + buffering.get() + " Buffering: {} > {}",
-                                storage.getBitField().getFirstUncompletedPiece(),
+                                storage.getBitField().getNextUncompletedPiece(),
                                 pieceToRead.get() + bufferingWindow);
                     }
                 }
@@ -1665,12 +1664,12 @@ public final class Vod extends MsgRetryComponent {
             forwarded.get(event.getSubpieceOffset()).add(event.getVodSource());
 
             // no need to store the timeout here
-            DataMsg.Request request //                    = new DataMsg.Request(selfNoParents.getAddress(),
+            DataMsg.Request request
                     = new DataMsg.Request(self.getAddress(),
-                    node.getVodAddress(),
-                    event.getAckId(),
-                    event.getPiece(),
-                    event.getSubpieceOffset(), 0);
+                            node.getVodAddress(),
+                            event.getAckId(),
+                            event.getPiece(),
+                            event.getSubpieceOffset(), 0);
             delegator.doRetry(request, self.getOverlayId());
         } else {
             DataMsg.PieceNotAvailable response = new DataMsg.PieceNotAvailable(self.getAddress(), event.getVodSource(),
@@ -1695,7 +1694,6 @@ public final class Vod extends MsgRetryComponent {
                 st.setTimeoutEvent(new DataMsg.AckTimeout(st, peer, self.getOverlayId()));
                 TimeoutId ackId = st.getTimeoutEvent().getTimeoutId();
                 if (comWin.addMessage(ackId, VodConfig.LB_MAX_SEGMENT_SIZE)) {
-//                    DataMsg.Response response = new DataMsg.Response(selfNoParents.getAddress(), peer, event.getTimeoutId(),
                     DataMsg.Response response = new DataMsg.Response(self.getAddress(), peer, event.getTimeoutId(),
                             ackId, event.getSubpiece(),
                             event.getSubpieceOffset(), event.getPiece(), comWin.getSize(),
@@ -1896,15 +1894,16 @@ public final class Vod extends MsgRetryComponent {
                     totalNumPiecesDownloaded++);
             partialPieces.remove(piece);
             bitTorrentSet.getStats().removePieceFromStats(piece);
-            utility.setPiece(storage.getBitField().getFirstUncompletedPiece());
+
+            // TODO: JIM - is this correct? I want the next uncomplete piece - not the first uncompleted piece!!
+            utility.setPiece(storage.getBitField().getNextUncompletedPiece());
 
             if (buffering.get() && utility.getPiece() > pieceToRead.get() + bufferingWindow) {
                 restartToRead();
             }
-            if (storage.getBitField().getChunk(piece / BitField.NUM_PIECES_PER_CHUNK) && !finished) {
+            if (storage.getBitField().hasChunk(piece / BitField.NUM_PIECES_PER_CHUNK)) {
                 int holdUtility = utility.getChunk();
-                utility.setChunkOnly(storage.getBitField().getFirstUncompletedChunk());
-//            snapshot.setUtility(self.getAddress(), utility.getChunck());
+                utility.setChunkOnly(storage.getBitField().getNextUncompletedChunk());
                 if (utility.getPiece() < utility.getChunk() * BitField.NUM_PIECES_PER_CHUNK) {
                     logger.error(compName + "##### bad piece Utility value : ({};{}) "
                             + storage.getBitField().getTotal(),
@@ -1915,7 +1914,7 @@ public final class Vod extends MsgRetryComponent {
 //                delegator.doTrigger(new ChangeBootstrapUtility(utility,
 //                        "GVod", self), vod);
                 bitTorrentSet.getStats().changeUtility(holdUtility,
-                        utility, storage.getBitField().pieceFieldSize(),
+                        utility, storage.getBitField().numberPieces(),
                         storage.getBitField());
                 informUtilityChange();
             }
@@ -1987,9 +1986,9 @@ public final class Vod extends MsgRetryComponent {
      */
     private void restartToRead() {
         UtilityVod utility = (UtilityVod) self.getUtility();
-        if (buffering.get() && read) {
-            if (storage.getBitField().getFirstUncompletedPiece()
-                    >= storage.getBitField().pieceFieldSize()) { // at the end of movie
+        if (buffering.get()) { // && read) {
+            if (storage.getBitField().getNextUncompletedPiece()
+                    >= storage.getBitField().numberPieces()) { // at the end of movie
                 buffering.set(false);
                 logger.info(compName + "2 starting reading after {}",
                         durationToString(System.currentTimeMillis() - stoppedReadingAtTime));
@@ -2000,15 +1999,15 @@ public final class Vod extends MsgRetryComponent {
                 }
             } else {
 //                if (time - 10 - ((time - 10) % 10) >= 0) {
-                if (time - 1 - ((time - 1) % 10) >= 0) {
+                if (time - 1 - ((time - 1) % 10) >= 0) { // true the whole time, time > 0
 //                    int timeOffset = time - 10 - ((time - 10) % 10);
                     int timeOffset = time - 1 - ((time - 1) % 10);
                     int left = rest.get(timeOffset);
                     float utilityDelta = (left - storage.needed())
                             / BitField.NUM_SUBPIECES_PER_PIECE;
-                    float lecRest = (storage.getBitField().pieceFieldSize()
+                    float lecRest = (storage.getBitField().numberPieces()
                             - pieceToRead.get()) * readingPeriod;
-                    float downRest = (storage.getBitField().pieceFieldSize()
+                    float downRest = (storage.getBitField().numberPieces()
                             - utility.getPiece())
                             * (10 + ((time - 10) % 10)) / utilityDelta * 1000;
                     if (lecRest > downRest + (overhead * downRest / 100)) {
@@ -2081,7 +2080,7 @@ public final class Vod extends MsgRetryComponent {
                     + event.getUtility());
             if (simulation) {
                 int reqUtility = event.getUtility();
-                int newUtility = storage.getBitField().setFirstUncompletedChunk(reqUtility);
+                int newUtility = storage.getBitField().setNextUncompletedChunk(reqUtility);
                 if (newUtility != utility.getChunk()) {
                     changeUtility(newUtility);
                 }
@@ -2110,7 +2109,7 @@ public final class Vod extends MsgRetryComponent {
                 newUtility = storage.getBitField().getChunkFieldSize() - 1;
             }
 
-            newUtility = storage.getBitField().setFirstUncompletedChunk(newUtility);
+            newUtility = storage.getBitField().setNextUncompletedChunk(newUtility);
             if (newUtility != utility.getChunk()) {
                 changeUtility(newUtility);
                 startJumpForward = System.currentTimeMillis();
@@ -2136,7 +2135,7 @@ public final class Vod extends MsgRetryComponent {
                 newUtility = storage.getBitField().getChunkFieldSize() - 1;
             }
             pieceToRead.set(newUtility * BitField.NUM_PIECES_PER_CHUNK);
-            newUtility = storage.getBitField().setFirstUncompletedChunk(newUtility);
+            newUtility = storage.getBitField().setNextUncompletedChunk(newUtility);
             if (newUtility != utility.getChunk()) {
                 changeUtility(newUtility);
             }
@@ -2179,7 +2178,7 @@ public final class Vod extends MsgRetryComponent {
                     start += mtu;
                     logger.debug(compName + "Sending HashResponse of size {} for chunk {} part {} to {}",
                             new Object[]{hash.length, event.getChunk(), i,
-                        event.getVodSource().getPeerAddress().getId()});
+                                event.getVodSource().getPeerAddress().getId()});
                 }
             }
         }
@@ -2293,14 +2292,14 @@ public final class Vod extends MsgRetryComponent {
         int chunkForByte = (seekPos / BitField.SUBPIECE_SIZE)
                 / BitField.NUM_SUBPIECES_PER_PIECE / BitField.NUM_PIECES_PER_CHUNK;
 
-        newUtility = storage.getBitField().setFirstUncompletedChunk(chunkForByte);
+        newUtility = storage.getBitField().setNextUncompletedChunk(chunkForByte);
 
         if (isMp4() == false) { // FLV
             // TODO - is the chunk size is fixed here at 2MB - 128 pieces??!?
             piece2Read = seekPos / (BitField.NUM_SUBPIECES_PER_PIECE * BitField.SUBPIECE_SIZE);
             offsetWithinPieceToRead = seekPos % (BitField.NUM_SUBPIECES_PER_PIECE * BitField.SUBPIECE_SIZE);
 
-            storage.getBitField().setFirstUncompletedPiece(piece2Read);
+            storage.getBitField().setNextUncompletedPiece(piece2Read);
 
             utility.setPiece(piece2Read);
 
@@ -2327,11 +2326,11 @@ public final class Vod extends MsgRetryComponent {
         sender = new Sender(this, responseBody, piece2Read, offsetWithinPieceToRead);
         sender.start();
         if (buffering.get()
-                && (storage.getBitField().getFirstUncompletedPiece()
+                && (storage.getBitField().getNextUncompletedPiece()
                 >= piece2Read + bufferingWindow
                 || storage.complete()
-                || storage.getBitField().getFirstUncompletedPiece()
-                >= storage.getBitField().pieceFieldSize())) {
+                || storage.getBitField().getNextUncompletedPiece()
+                >= storage.getBitField().numberPieces())) {
             restartToRead();
         }
         pieceToRead.set(piece2Read);
@@ -2351,13 +2350,13 @@ public final class Vod extends MsgRetryComponent {
     private void changeUtility(int newUtility) {
         UtilityVod utility = (UtilityVod) self.getUtility();
         // TODO JIM - remove this and fix problem
-//        buffering.set(true);
+        buffering.set(true);
 
         int oldUtility = utility.getChunk();
         utility.setChunk(newUtility);
 //        snapshot.setUtility(self.getAddress(), utility.getChunck());
         bitTorrentSet.getStats().changeUtility(oldUtility, utility,
-                storage.getBitField().pieceFieldSize(), storage.getBitField());
+                storage.getBitField().numberPieces(), storage.getBitField());
 
         // TODO: Check if I already have nodes at the new utility level first.
         // Ask the bootstrap server for nodes at the new utility level
@@ -2379,7 +2378,7 @@ public final class Vod extends MsgRetryComponent {
                 tocheck.add(node);
             }
         }
-        // Add those nodes that have now moved from upper-set to similar set
+        // Add those nodes that have now moved from upper-set to bittorrent set
         List<VodDescriptor> sendConnect = bitTorrentSet.updateAll(tocheck, utility);
         logger.info(compName + "Utility changed, removing " + sendConnect.size() + " from upper set");
         noLongerInUpperSet.removeAll(sendConnect);
@@ -2392,7 +2391,7 @@ public final class Vod extends MsgRetryComponent {
             triggerDisconnectRequest(node.getVodAddress(), false);
         }
 
-        if (utility.getPiece() <= storage.getBitField().pieceFieldSize()) {
+        if (utility.getPiece() <= storage.getBitField().numberPieces()) {
             for (VodDescriptor node : sendConnect) {
                 triggerConnectRequest(node, true);
             }
@@ -2413,7 +2412,7 @@ public final class Vod extends MsgRetryComponent {
         }
 
         int i = utility.getChunk();
-        if (utility.getPiece() <= storage.getBitField().pieceFieldSize()) {
+        if (utility.getPiece() <= storage.getBitField().numberPieces()) {
             while (i < storage.getBitField().getChunkFieldSize() + 11) {
                 if (fingers.get(i) != null) {
                     VodDescriptor node = fingers.get(i);
@@ -2426,15 +2425,15 @@ public final class Vod extends MsgRetryComponent {
         self.updateUtility(utility);
         updateSetsAndConnect();
     }
-    
+
 //    Handler<ChangeUtilityMsg.Response> handleChangeUtilityMsgResponse =
 //            new Handler<ChangeUtilityMsg.Response>() {
 //
 //                @Override
 //                public void handle(ChangeUtilityMsg.Response event) {
 //                    List<GVodNodeDescriptor> tocheck = event.getPeers();
-//        // Add those nodes that have now moved from upper-set to similar set
-//        List<GVodNodeDescriptor> sendConnect = similarSet.updateAll(tocheck);
+//        // Add those nodes that have now moved from upper-set to bittorrent set
+//        List<GVodNodeDescriptor> sendConnect = bittorrentSet.updateAll(tocheck);
 //
 //        noLongerInUpperSet.removeAll(sendConnect);
 //
@@ -2449,7 +2448,7 @@ public final class Vod extends MsgRetryComponent {
 //                triggerConnectRequest(node, true);
 //            }
 //        }
-    // add nodes to similarity/upper sets
+    // add nodes to bittorrentity/upper sets
 //                }
 //            };
 //    Handler<ChangeUtilityMsg.RequestTimeout> handleChangeUtilityMsgRequestTimeout =
@@ -2479,7 +2478,7 @@ public final class Vod extends MsgRetryComponent {
                     buffering.set(true);
                 } else {
                     pieceToRead.getAndIncrement();
-                    if (pieceToRead.get() >= storage.getBitField().pieceFieldSize()
+                    if (pieceToRead.get() >= storage.getBitField().numberPieces()
                             || pieceToRead.get() >= storage.getBitField().getPieceFieldLength() * 8) {
                         logger.info(compName + "finished to read after {}, number of buffering={} "
                                 + bW,
@@ -2509,20 +2508,20 @@ public final class Vod extends MsgRetryComponent {
     };
 
     public void play() {
-        read = true;
+//        read = true;
         if (buffering.get()
-                && (storage.getBitField().getFirstUncompletedPiece()
+                && (storage.getBitField().getNextUncompletedPiece()
                 >= pieceToRead.get() + bufferingWindow || storage.complete()
-                || storage.getBitField().getFirstUncompletedPiece()
-                >= storage.getBitField().pieceFieldSize())) {
+                || storage.getBitField().getNextUncompletedPiece()
+                >= storage.getBitField().numberPieces())) {
             logger.info(compName + "RESTARTING TO READ: " + self.getId() + " buffering=" + buffering + " piece-to-read:"
                     + pieceToRead.get() + " -- bufferingWindow: " + bufferingWindow
-                    + " => First uncompleted piece: " + storage.getBitField().getFirstUncompletedPiece());
+                    + " => First uncompleted piece: " + storage.getBitField().getNextUncompletedPiece());
             restartToRead();
         } else {
             logger.info(compName + "NOT RESTARTING TO READ: " + self.getId() + " buffering=" + buffering + " piece-to-read:"
                     + pieceToRead.get() + " -- bufferingWindow: " + bufferingWindow
-                    + " => First uncompleted piece: " + storage.getBitField().getFirstUncompletedPiece());
+                    + " => First uncompleted piece: " + storage.getBitField().getNextUncompletedPiece());
         }
     }
     /**
@@ -2533,7 +2532,7 @@ public final class Vod extends MsgRetryComponent {
         @Override
         public void handle(Pause event) {
             logger.trace(compName + "handlePause");
-            read = false;
+//            read = false;
             buffering.set(true);
         }
     };
@@ -2569,12 +2568,11 @@ public final class Vod extends MsgRetryComponent {
     };
 
     /**
-     * tell gvodPeer that the downloading is finished, put the stream in the
+     * tell vodPeer that the downloading is finished, put the stream in the
      * background streams and become a seed
      */
     private void finishedDownloading() {
         UtilityVod utility = (UtilityVod) self.getUtility();
-        finished = true;
         seeder = true;
         buffering.set(false);
         long duration = System.currentTimeMillis() - startedAtTime;
@@ -2582,8 +2580,8 @@ public final class Vod extends MsgRetryComponent {
                 + utility.getChunk() + ";" + utility.getPiece() + ") " + duration + " " + freeRider,
                 durationToString(duration),
                 piecesFromUpperSet / piecesFromUtilitySet);
-         logger.info(compName + "Download time: {}  , Buffering time: {}", 
-                 durationToString(duration), bufferingTime);
+        logger.info(compName + "Download time: {}  , Buffering time: {}",
+                durationToString(duration), bufferingTime);
 
         // write hash pieces to file when finished downloading.
         if (storage instanceof StorageMemMapWholeFile) {
@@ -2604,7 +2602,6 @@ public final class Vod extends MsgRetryComponent {
         restartToRead();
         logger.info(compName + "become seeder");
         changeUtility(VodConfig.SEEDER_UTILITY_VALUE);
-        seeder = true;
 
         try {
             ActiveTorrents.makeSeeder(torrentFileAddress);
@@ -2641,7 +2638,6 @@ public final class Vod extends MsgRetryComponent {
      *
      * @param peer
      */
-
     /**
      * trigger a connect request to node
      *
@@ -2702,13 +2698,13 @@ public final class Vod extends MsgRetryComponent {
             if (piece == -1) {
                 // no piece is eligible for download from this peer
                 if (upperSet.contains(peer)) {
-                    piece = storage.getBitField().getFirstUncompletedPiece();
-                    while (piece < storage.getBitField().pieceFieldSize()
+                    piece = storage.getBitField().getNextUncompletedPiece();
+                    while (piece < storage.getBitField().numberPieces()
                             && (partialPieces.containsKey(piece)
                             || storage.getBitField().getPiece(piece))) {
                         piece++;
                     }
-                    if (piece >= storage.getBitField().pieceFieldSize()) {
+                    if (piece >= storage.getBitField().numberPieces()) {
                         if (ackId != null) {
                             delegator.doTrigger(new DataMsg.Ack(self.getAddress(), peer, ackId, rtt), network);
                         }
@@ -2814,7 +2810,6 @@ public final class Vod extends MsgRetryComponent {
             rto = (double) config.getDataRequestTimeout();
         }
 
-//        DataMsg.Request request = new DataMsg.Request(selfNoParents.getAddress(), des,
         DataMsg.Request request = new DataMsg.Request(self.getAddress(), des,
                 ackId, piece, subpiece, delay);
         ScheduleRetryTimeout st = new ScheduleRetryTimeout(rto.longValue(), 1);
@@ -2862,19 +2857,19 @@ public final class Vod extends MsgRetryComponent {
             int piece = bitTorrentSet.getStats().pieceToDownloadFromUpper(
                     info, partialPieces, pieceToRead.get(), bufferingWindow);
             if (piece == -1) {
-                piece = storage.getBitField().getFirstUncompletedPiece();
-                while (piece < storage.getBitField().pieceFieldSize()
+                piece = storage.getBitField().getNextUncompletedPiece();
+                while (piece < storage.getBitField().numberPieces()
                         && (partialPieces.containsKey(piece)
                         || storage.getBitField().getPiece(piece))) {
                     piece++;
                 }
-                if (piece < storage.getBitField().pieceFieldSize()) {
+                if (piece < storage.getBitField().numberPieces()) {
                     logger.trace(compName + "Upper set: Piece num {} found", piece);
                     return piece;
                 } else {
                     logger.trace(compName + "Upper set: Piece num {} is greater than "
                             + "maxPieceSize {}", piece,
-                            storage.getBitField().pieceFieldSize());
+                            storage.getBitField().numberPieces());
                     return -1;
                 }
             }
@@ -2882,7 +2877,7 @@ public final class Vod extends MsgRetryComponent {
         } else {
             int piece = bitTorrentSet.getStats().pieceToDownload(
                     info, partialPieces, pieceToRead.get(), bufferingWindow);
-            logger.trace(compName + "Piece num {} found from similar set", piece);
+            logger.trace(compName + "Piece num {} found from bittorrent set", piece);
             return piece;
         }
 

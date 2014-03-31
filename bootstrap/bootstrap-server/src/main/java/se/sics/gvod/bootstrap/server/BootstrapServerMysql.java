@@ -890,7 +890,7 @@ public class BootstrapServerMysql extends ComponentDefinition {
                                 String name = rs.getString(1);
                                 StringBuilder sb = new StringBuilder();
                                 sb.append("gvod://http:/").append(self.getIp())
-                                .append("/gvod/").append(name).append(".data");
+                                .append("/").append(name).append(".data");
                                 videosNeedingHelp.add(sb.toString());
                             }
                             hadResults = stmt.getMoreResults();
@@ -1137,7 +1137,7 @@ public class BootstrapServerMysql extends ComponentDefinition {
                                 .append(imgUrl).append("\"/></td>");
                     }
                     results.append("<td><a href=\"gvod://http:/").append(self.getIp())
-                            .append("/gvod/").append(name).append(".data\">")
+                            .append("/").append(name).append(".data\">")
                             .append(name).append("</a></td>");
                     if (desc != null) {
                         results.append("<td>").append(desc).append("</td>");
