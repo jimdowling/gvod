@@ -656,6 +656,7 @@ public final class Vod extends MsgRetryComponent {
 
         for (Integer k : staleKeys) {
             partialPieces.remove(k);
+            logger.debug("Cleaning up stale partial piece: {}", k);
         }
 
     }
@@ -719,7 +720,7 @@ public final class Vod extends MsgRetryComponent {
                 noDownloading = false;
             }
             list.remove(add);
-            if (numRoundsNoPiecesDownloaded > 5) {
+            if (numRoundsNoPiecesDownloaded > 3) {
                 peer.clearPipeline();
             }
         }
