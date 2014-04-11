@@ -158,7 +158,6 @@ public class DescriptorStore {
     }
 
     public void suppress(VodAddress peer) {
-
         entries.remove(d2e.get(peer));
         d2e.remove(peer);
     }
@@ -168,7 +167,7 @@ public class DescriptorStore {
      * @param peer
      * @return
      */
-    public VodDescriptor remove(VodAddress peer) {
+    VodDescriptor remove(VodAddress peer) {
         VodDescriptor sendDisconnect = null;
         if (d2e.get(peer).getRefs() > 0) {
             d2e.get(peer).supRef();

@@ -112,7 +112,7 @@ public final class VodPeer extends ComponentDefinition {
         subscribe(handleRebootstrap, vod.getPositive(VodPort.class));
         subscribe(handleCroupierJoinCompleted, croupier.getPositive(CroupierPort.class));
 
-        subscribe(handleVodFault, vod.getControl());
+        subscribe(handleFault, vod.getControl());
         subscribe(handleCroupierFault, croupier.getControl());
         
         subscribe(handleDataMsgRequest, network);
@@ -425,13 +425,21 @@ public final class VodPeer extends ComponentDefinition {
 //            logger.trace("trigger bootstraprequest");
 //        }
 //    };
-    Handler<Fault> handleVodFault = new Handler<Fault>() {
+    Handler<Fault> handleFault = new Handler<Fault>() {
         @Override
         public void handle(Fault event) {
             
             logger.warn(self.getId() + "/" + self.getOverlayId() 
                     + " - Fault in Vod component: " + event.getFault().getMessage());
-        
+            if (event.getFault() != null) {
+                Throwable t = event.getFault();
+                t.printStackTrace();
+                StringBuffer sb = new StringBuffer();
+                for (StackTraceElement ste : t.getStackTrace()) {
+                    sb.append(ste.getClassName()+":" + ste.getLineNumber() + " ");
+                }
+                logger.error(sb.toString());
+            }
             unsubscribe(handleRebootstrap, vod.getPositive(VodPort.class));
             disconnect(network, vod.getNegative(VodNetwork.class));
             disconnect(timer, vod.getNegative(Timer.class));
