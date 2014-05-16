@@ -1114,10 +1114,12 @@ public class BootstrapServerMysql extends ComponentDefinition {
                         + "	top:1px;\n"
                         + "}"
                         + "</style>");
-        sb.append("</head><img src=\"http://clommunity.blog.pangea.org/wp-content/ata-images/clommunity_200.png\"/>");
-        sb.append("<body><h2 align=\"center\" class=\"style2\">");
-        sb.append("Clommunity Video-on-Demand</h2><br/>");
-        sb.append("<a href=\"http://snurran.sics.se/gvod/gvod.xpi\" class=\"myButton\">Download</a>");
+        sb.append("</head><body><table style=\"border: 0px;\" ><tr><td>"
+                + "<img src=\"http://clommunity.blog.pangea.org/wp-content/ata-images/clommunity_200.png\"/>");
+        sb.append("</td><td><h2 align=\"center\" class=\"style2\">");
+        sb.append("Clommunity Video-on-Demand</h2></td><td>");
+        sb.append("<a href=\"http://snurran.sics.se/gvod/gvod.xpi\" class=\"myButton\">Download</a>"
+                + "</td></tr></table>");
         sb.append("<br/><para align=\"center\">Installation requirements: jdk 1.6+, firefox.<br/>"
                 + "Tested on ubuntu and windows 7.<para/>");
         sb.append(searchResults());
@@ -1150,9 +1152,6 @@ public class BootstrapServerMysql extends ComponentDefinition {
                     String name = rs.getString(2);
                     String desc = rs.getString(3);
                     String imgUrl = rs.getString(5);
-//                    results.append("<tr>");
-                    // player=0/
-//                    results.append("</tr>");
                     results.append("<tr style=\"border-bottom: 1px dashed #000;\">");
                     
                     if (imgUrl != null) {
