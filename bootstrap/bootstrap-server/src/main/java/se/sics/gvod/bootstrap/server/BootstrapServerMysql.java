@@ -1114,10 +1114,10 @@ public class BootstrapServerMysql extends ComponentDefinition {
                 + "	top:1px;\n"
                 + "}\n"
                 + ".right { float:right;\n"
-                + "width:300px;"
+                + "width:600px;"
                 + "}\n"
                 + "</style>");
-        sb.append("</head><body><table style=\"border: 0px; width: 800 px;\" ><tr><td>"
+        sb.append("</head><body><table style=\"border: 0px; width: 500 px; align: center;\" ><tr><td>"
                 + "<img src=\"http://clommunity.blog.pangea.org/wp-content/ata-images/clommunity_200.png\"/>");
         sb.append("</td><td><table class=\"right\"><tr><td><h2 class=\"style2\">");
         sb.append("Clommunity Video-on-Demand</h2></td></tr><tr><td>");
