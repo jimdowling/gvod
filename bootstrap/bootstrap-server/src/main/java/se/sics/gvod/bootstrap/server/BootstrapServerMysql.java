@@ -1091,33 +1091,36 @@ public class BootstrapServerMysql extends ComponentDefinition {
         sb.append("<title>Clommunity VoD Bootstrap Server</title>");
         sb.append("<style>.style2 {font-family: ");
         sb.append("Arial, Helvetica, sans-serif; color: #568203;}"
-                        + "\n.myButton {\n"
-                        + "	background-color:#568203;\n"
-                        + "	-moz-border-radius:14px;\n"
-                        + "	-webkit-border-radius:14px;\n"
-                        + "	border-radius:28px;\n"
-                        + "	border:1px solid #18ab29;\n"
-                        + "	display:inline-block;\n"
-                        + "	cursor:pointer;\n"
-                        + "	color:#ffffff;\n"
-                        + "	font-family:arial;\n"
-                        + "	font-size:17px;\n"
-                        + "	padding:4px 10px;\n"
-                        + "	text-decoration:none;\n"
-                        + "	text-shadow:0px 1px 0px #2f6627;\n"
-                        + "}\n"
-                        + ".myButton:hover {\n"
-                        + "	background-color:#5cbf2a;\n"
-                        + "}\n"
-                        + ".myButton:active {\n"
-                        + "	position:relative;\n"
-                        + "	top:1px;\n"
-                        + "}"
-                        + "</style>");
+                + "\n.myButton {\n"
+                + "	background-color:#568203;\n"
+                + "	-moz-border-radius:14px;\n"
+                + "	-webkit-border-radius:14px;\n"
+                + "	border-radius:28px;\n"
+                + "	border:1px solid #18ab29;\n"
+                + "	display:inline-block;\n"
+                + "	cursor:pointer;\n"
+                + "	color:#ffffff;\n"
+                + "	font-family:arial;\n"
+                + "	font-size:17px;\n"
+                + "	padding:4px 10px;\n"
+                + "	text-decoration:none;\n"
+                + "	text-shadow:0px 1px 0px #2f6627;\n"
+                + "}\n"
+                + ".myButton:hover {\n"
+                + "	background-color:#5cbf2a;\n"
+                + "}\n"
+                + ".myButton:active {\n"
+                + "	position:relative;\n"
+                + "	top:1px;\n"
+                + "}\n"
+                + ".right { float:right;\n"
+                + "width:300px;"
+                + "}\n"
+                + "</style>");
         sb.append("</head><body><table style=\"border: 0px; width: 800 px;\" ><tr><td>"
                 + "<img src=\"http://clommunity.blog.pangea.org/wp-content/ata-images/clommunity_200.png\"/>");
         sb.append("</td><td><table><tr><h2 align=\"center\" class=\"style2\">");
-        sb.append("Clommunity Video-on-Demand</h2></tr><tr align=\"center\">");
+        sb.append("Clommunity Video-on-Demand</h2></tr><tr class=\"right\">");
         sb.append("<a href=\"http://snurran.sics.se/gvod/gvod.xpi\" class=\"myButton\">Download</a>"
                 + "</tr></table></td></tr></table>");
         sb.append("<br/><para align=\"center\">Installation requirements: jdk 1.6+, firefox, windows or linux.");
@@ -1152,13 +1155,13 @@ public class BootstrapServerMysql extends ComponentDefinition {
                     String desc = rs.getString(3);
                     String imgUrl = rs.getString(5);
                     results.append("<tr style=\"border-bottom: 1px dashed #000;\">");
-                    
+
                     if (imgUrl != null && !imgUrl.isEmpty()) {
                         results.append("<td><img height=\"50\" width=\"50\" src=\"")
                                 .append(imgUrl).append("\"/></td>");
                     } else {
                         results.append("<td><img height=\"50\" width=\"50\" "
-                                + "src=\"http://snurran.sics.se/hops/gvod.png\"/></td>");                        
+                                + "src=\"http://snurran.sics.se/hops/gvod.png\"/></td>");
                     }
                     results.append("<td><a href=\"gvod://http:/").append(self.getIp())
                             .append("/").append(name).append(".data\">")
