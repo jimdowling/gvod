@@ -1114,8 +1114,7 @@ public class BootstrapServerMysql extends ComponentDefinition {
                         + "	top:1px;\n"
                         + "}"
                         + "</style>");
-        sb.append("</head><img src=\"http://clommunity.blog.pangea.org/wp-content/ata-images/clommunity_200.png\" "
-                + "align=\"left\"/> <img src=\"http://snurran.sics.se/nops/gvod.png\" align=\"center\"/>");
+        sb.append("</head><img src=\"http://clommunity.blog.pangea.org/wp-content/ata-images/clommunity_200.png\"/>");
         sb.append("<body><h2 align=\"center\" class=\"style2\">");
         sb.append("Clommunity Video-on-Demand</h2><br/>");
         sb.append("<a href=\"http://snurran.sics.se/gvod/gvod.xpi\" class=\"myButton\">Download</a>");
@@ -1155,9 +1154,13 @@ public class BootstrapServerMysql extends ComponentDefinition {
                     // player=0/
 //                    results.append("</tr>");
                     results.append("<tr style=\"border-bottom: 1px dashed #000;\">");
+                    
                     if (imgUrl != null) {
                         results.append("<td><img height=\"50\" width=\"50\" src=\"")
                                 .append(imgUrl).append("\"/></td>");
+                    } else {
+                        results.append("<td><img height=\"50\" width=\"50\" "
+                                + "src=\"http://snurran.sics.se/hops/gvod.png\"/></td>");                        
                     }
                     results.append("<td><a href=\"gvod://http:/").append(self.getIp())
                             .append("/").append(name).append(".data\">")
