@@ -1114,12 +1114,12 @@ public class BootstrapServerMysql extends ComponentDefinition {
                         + "	top:1px;\n"
                         + "}"
                         + "</style>");
-        sb.append("</head><body><table style=\"border: 0px;\" ><tr><td>"
+        sb.append("</head><body><table style=\"border: 0px; width: 800 px;\" ><tr><td>"
                 + "<img src=\"http://clommunity.blog.pangea.org/wp-content/ata-images/clommunity_200.png\"/>");
-        sb.append("</td><td><h2 align=\"center\" class=\"style2\">");
-        sb.append("Clommunity Video-on-Demand</h2></td><td style=\"align: right;\">");
+        sb.append("</td><td><table><tr><h2 align=\"center\" class=\"style2\">");
+        sb.append("Clommunity Video-on-Demand</h2></tr><tr style=\"align: right;\">");
         sb.append("<a href=\"http://snurran.sics.se/gvod/gvod.xpi\" class=\"myButton\">Download</a>"
-                + "</td></tr></table>");
+                + "</tr></table></td></tr></table>");
         sb.append("<br/><para align=\"center\">Installation requirements: jdk 1.6+, firefox, windows or linux.");
         sb.append(searchResults());
         sb.append("</body></html>");
