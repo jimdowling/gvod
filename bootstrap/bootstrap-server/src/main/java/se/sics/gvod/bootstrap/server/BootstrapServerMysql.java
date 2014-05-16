@@ -1117,7 +1117,7 @@ public class BootstrapServerMysql extends ComponentDefinition {
         sb.append("</head><body><table style=\"border: 0px; width: 800 px;\" ><tr><td>"
                 + "<img src=\"http://clommunity.blog.pangea.org/wp-content/ata-images/clommunity_200.png\"/>");
         sb.append("</td><td><table><tr><h2 align=\"center\" class=\"style2\">");
-        sb.append("Clommunity Video-on-Demand</h2></tr><tr style=\"align: right;\">");
+        sb.append("Clommunity Video-on-Demand</h2></tr><tr align=\"center\">");
         sb.append("<a href=\"http://snurran.sics.se/gvod/gvod.xpi\" class=\"myButton\">Download</a>"
                 + "</tr></table></td></tr></table>");
         sb.append("<br/><para align=\"center\">Installation requirements: jdk 1.6+, firefox, windows or linux.");
