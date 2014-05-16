@@ -1117,11 +1117,10 @@ public class BootstrapServerMysql extends ComponentDefinition {
         sb.append("</head><body><table style=\"border: 0px;\" ><tr><td>"
                 + "<img src=\"http://clommunity.blog.pangea.org/wp-content/ata-images/clommunity_200.png\"/>");
         sb.append("</td><td><h2 align=\"center\" class=\"style2\">");
-        sb.append("Clommunity Video-on-Demand</h2></td><td>");
+        sb.append("Clommunity Video-on-Demand</h2></td><td style=\"align: right;\">");
         sb.append("<a href=\"http://snurran.sics.se/gvod/gvod.xpi\" class=\"myButton\">Download</a>"
                 + "</td></tr></table>");
-        sb.append("<br/><para align=\"center\">Installation requirements: jdk 1.6+, firefox.<br/>"
-                + "Tested on ubuntu and windows 7.<para/>");
+        sb.append("<br/><para align=\"center\">Installation requirements: jdk 1.6+, firefox, windows or linux.");
         sb.append(searchResults());
         sb.append("</body></html>");
         return sb.toString();
@@ -1154,7 +1153,7 @@ public class BootstrapServerMysql extends ComponentDefinition {
                     String imgUrl = rs.getString(5);
                     results.append("<tr style=\"border-bottom: 1px dashed #000;\">");
                     
-                    if (imgUrl != null) {
+                    if (imgUrl != null && !imgUrl.isEmpty()) {
                         results.append("<td><img height=\"50\" width=\"50\" src=\"")
                                 .append(imgUrl).append("\"/></td>");
                     } else {
