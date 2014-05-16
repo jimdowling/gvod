@@ -56,21 +56,21 @@ import se.sics.kompics.web.WebResponse;
 
 /**
  * The <code>BootstrapServer</code> class.
- * 
- * Requirements: 
- * This Bootstrap server assumes that there is a webserver running on the same
- * host that can server files from 'torrentspath' directory - default /var/www (from Apache2). 
- * The userid running this Bootstrap server should have write permissions to the 'torrentspath' directory.
- * You can set the 'torrentspath' directory as a switch.
+ *
+ * Requirements: This Bootstrap server assumes that there is a webserver running
+ * on the same host that can server files from 'torrentspath' directory -
+ * default /var/www (from Apache2). The userid running this Bootstrap server
+ * should have write permissions to the 'torrentspath' directory. You can set
+ * the 'torrentspath' directory as a switch.
  *
  *
  * CREATE TABLE nodes ( id INT NOT NULL, ip INT UNSIGNED NOT NULL, port SMALLINT
  * UNSIGNED NOT NULL, asn SMALLINT UNSIGNED NOT NULL DEFAULT 0, country char(2)
  * NOT NULL DEFAULT 'se', nat_type TINYINT UNSIGNED NOT NULL, open BOOLEAN NOT
- * NULL, mtu SMALLINT UNSIGNED NOT NULL DEFAULT 1500, helper BOOLEAN NOT NULL, last_ping TIMESTAMP
- * DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, joined TIMESTAMP NOT
- * NULL, PRIMARY KEY(id), KEY open_stable_idx(open, last_ping), KEY
- * country_idx(country), KEY asn_idx(asn) ) engine=innodb;
+ * NULL, mtu SMALLINT UNSIGNED NOT NULL DEFAULT 1500, helper BOOLEAN NOT NULL,
+ * last_ping TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ * joined TIMESTAMP NOT NULL, PRIMARY KEY(id), KEY open_stable_idx(open,
+ * last_ping), KEY country_idx(country), KEY asn_idx(asn) ) engine=innodb;
  *
  *
  * // If the parent is already in the db, we can look up it's ip, port, id
@@ -267,7 +267,7 @@ public class BootstrapServerMysql extends ComponentDefinition {
             trigger(spt, timer);
 
             SchedulePeriodicTimeout checkUploads
-                    = new SchedulePeriodicTimeout(20*1000, 20*1000);
+                    = new SchedulePeriodicTimeout(20 * 1000, 20 * 1000);
             checkUploads.setTimeoutEvent(new CheckForNewUploadsTimeout(spt));
             checkUploadsId = spt.getTimeoutEvent().getTimeoutId();
             trigger(checkUploads, timer);
@@ -283,7 +283,7 @@ public class BootstrapServerMysql extends ComponentDefinition {
                     helperNodes.put(event.getSource(), h);
                 }
             };
-    
+
     Handler<BootstrapMsg.GetPeersRequest> handleBootstrapMsgGetPeersRequest = new Handler<BootstrapMsg.GetPeersRequest>() {
         @Override
         public void handle(BootstrapMsg.GetPeersRequest event) {
@@ -581,7 +581,7 @@ public class BootstrapServerMysql extends ComponentDefinition {
                     event.getDownloaders(),
                     event.getVodSource().getNatPolicy(),
                     event.getVodSource().getNatType() == NatType.OPEN ? true : false,
-                    event.getMtu(), 
+                    event.getMtu(),
                     event.isHelper());
         }
     };
@@ -919,13 +919,13 @@ public class BootstrapServerMysql extends ComponentDefinition {
                         }
                         Helper h = helperNodes.get(dest);
                         if (h.isAvailable()) {
-                            trigger(new BootstrapMsg.HelperDownload(ToVodAddr.systemAddr(self), 
-                               ToVodAddr.systemAddr(dest), 
-                            videosNeedingHelp.get(numVideos-1)), network);
+                            trigger(new BootstrapMsg.HelperDownload(ToVodAddr.systemAddr(self),
+                                            ToVodAddr.systemAddr(dest),
+                                            videosNeedingHelp.get(numVideos - 1)), network);
                             numVideos--;
                         }
                     }
-                    
+
                 }
             };
 
@@ -1089,12 +1089,38 @@ public class BootstrapServerMysql extends ComponentDefinition {
                 .append("//www.w3.org/1999/xhtml\"><head><meta http-equiv=\"Conten");
         sb.append("t-Type\" content=\"text/html; charset=utf-8\" />");
         sb.append("<title>Clommunity VoD Bootstrap Server</title>");
-        sb.append("<style type=\"text/css\"><!--.style2 {font-family: ");
-        sb
-                .append("Arial, Helvetica, sans-serif; color: #0099FF;}--></style>");
-        sb.append("</head><body><h2 align=\"center\" class=\"style2\">");
+        sb.append("<style>.style2 {font-family: ");
+        sb.append("Arial, Helvetica, sans-serif; color: #568203;}"
+                        + "\n.myButton {\n"
+                        + "	background-color:#44c767;\n"
+                        + "	-moz-border-radius:28px;\n"
+                        + "	-webkit-border-radius:28px;\n"
+                        + "	border-radius:28px;\n"
+                        + "	border:1px solid #18ab29;\n"
+                        + "	display:inline-block;\n"
+                        + "	cursor:pointer;\n"
+                        + "	color:#ffffff;\n"
+                        + "	font-family:arial;\n"
+                        + "	font-size:17px;\n"
+                        + "	padding:16px 31px;\n"
+                        + "	text-decoration:none;\n"
+                        + "	text-shadow:0px 1px 0px #2f6627;\n"
+                        + "}\n"
+                        + ".myButton:hover {\n"
+                        + "	background-color:#5cbf2a;\n"
+                        + "}\n"
+                        + ".myButton:active {\n"
+                        + "	position:relative;\n"
+                        + "	top:1px;\n"
+                        + "}"
+                        + "</style>");
+        sb.append("</head><img src=\"http://clommunity.blog.pangea.org/wp-content/ata-images/clommunity_200.png\" "
+                + "align=\"left\"/> <img src=\"http://snurran.sics.se/nops/gvod.png\" align=\"center\"/>");
+        sb.append("<body><h2 align=\"center\" class=\"style2\">");
         sb.append("Clommunity Video-on-Demand</h2><br>");
-        sb.append("<para align=\"center\"><a href=\"http://snurran.sics.se/gvod/gvod.xpi\">"
+        sb.append("<para align=\"center\">"
+                + "<a href=\"http://snurran.sics.se/gvod/gvod.xpi\" class=\"Download\">green</a>"
+                + "<a href=\"http://snurran.sics.se/gvod/gvod.xpi\">"
                 + "Click here to download and install our firefox addon.</a><br/>");
         sb.append("<br/>Installation requirements: jdk 1.6+, firefox.<br/>"
                 + "Tested on ubuntu and windows 7.<para/>");
