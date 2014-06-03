@@ -28,9 +28,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.util.Random;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.kompics.Handler;
@@ -56,22 +54,18 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import org.apache.commons.math.stat.descriptive.SummaryStatistics;
+import org.javatuples.Pair;
 import se.sics.gvod.common.BitField;
 import se.sics.gvod.common.CommunicationWindow;
 import se.sics.gvod.config.VodConfig;
 import se.sics.gvod.common.msgs.ConnectMsg;
 import se.sics.gvod.common.msgs.DisconnectMsg;
-import se.sics.gvod.system.main.GMain;
 import se.sics.gvod.system.util.ActiveTorrents;
 import se.sics.gvod.system.util.BaseHandler;
 import se.sics.gvod.system.util.FileUtils;
@@ -83,17 +77,13 @@ import se.sics.gvod.common.*;
 import se.sics.gvod.croupier.PeerSamplePort;
 import se.sics.gvod.nat.common.MsgRetryComponent;
 import se.sics.gvod.system.peer.events.InitiateMembershipSearch;
-import se.sics.gvod.system.peer.sets.BitTorrentSet;
-import se.sics.gvod.system.peer.sets.DownloadStats;
 import se.sics.gvod.system.peer.sets.InitiateDataOffer;
-import se.sics.gvod.system.peer.sets.LowerSet;
 import se.sics.gvod.croupier.events.CroupierSample;
 import se.sics.gvod.nat.traversal.NatTraverserPort;
 import se.sics.gvod.nat.traversal.events.DisconnectNeighbour;
 import se.sics.gvod.net.Nat;
 import se.sics.gvod.net.msgs.ScheduleRetryTimeout;
 import se.sics.gvod.system.peer.VodPeerPort;
-import se.sics.gvod.system.peer.sets.UpperSet;
 import se.sics.gvod.system.peer.events.ChangeUtility;
 import se.sics.gvod.system.peer.events.JumpBackward;
 import se.sics.gvod.system.peer.events.JumpForward;
@@ -104,8 +94,8 @@ import se.sics.gvod.system.peer.events.QuitCompleted;
 import se.sics.gvod.system.peer.events.ReadingCompleted;
 import se.sics.gvod.system.peer.events.SlowBackground;
 import se.sics.gvod.system.peer.events.SpeedBackground;
-import se.sics.gvod.system.peer.sets.DescriptorStore;
 import se.sics.gvod.system.storage.StorageFcByteBuf;
+import se.sics.gvod.system.util.ActiveTorrentsException;
 import se.sics.gvod.system.util.Sender;
 import se.sics.gvod.timer.CancelPeriodicTimeout;
 import se.sics.gvod.timer.CancelTimeout;
@@ -125,31 +115,53 @@ import se.sics.kompics.Stop;
 public final class Vod extends MsgRetryComponent {
 
     public static final boolean MEM_MAP_VOD_FILES = true;
+    private Logger logger = LoggerFactory.getLogger(Vod.class);
+
+    private VodConfiguration config;
+
+    private BaseHandler handler;
+    private Vod comp;
+
+    private HistoryManager historyMngr;
+    private ConnectionManager connectionMngr;
+    private DownloadManager downloadMngr;
+    private PlayerManager playerMngr;
+    private Self self;
+
+    private String compName;
+    private int time = 1;
+    private boolean simulation;
+
+    private int ackTimeout;
+    private int mtu;
+
+    private Sender sender; //is this used for sending data?
+
+    private int bufferingNum = 0; //What is this one used for...it is used only in the read
+    private int waiting = 0; //What is this? It is never changed
+    private int misConnect = 0; //What is this? It is never changed
+    private long bW; //What is this?
+
+    private Map<VodAddress, Long> downloadedFrom; //is this leftover code? doesn't seem to be code that works 
+
+    private List<TimeoutId> outstandingHashRequest;
+    private Map<TimeoutId, Map<Integer, ByteBuffer>> awaitingHashResponses;
+    private Map<Integer, Long> ongoingConnectRequests;
+    private TimeoutId initiateShuffleTimeoutId, dataOfferPeriodTimeoutId, readTimerId;
+
+    private Map<VodAddress, Long> suspected; //do I actually do anything with this? or do I just put the peers in here?
+    private Map<Integer, List<VodAddress>> forwarded;
+
+    private boolean rebootstrap = false;
+    /**
+     * *****Alex*****
+     */
     Positive<NatTraverserPort> natTraverserPort = positive(NatTraverserPort.class);
     Negative<Status> status = negative(Status.class);
     Negative<VodPort> vod = negative(VodPort.class);
     Positive<PeerSamplePort> croupier = positive(PeerSamplePort.class);
     Negative<VodPeerPort> peer = negative(VodPeerPort.class);
-    private Logger logger = LoggerFactory.getLogger(Vod.class);
-    private Self self;
-    /**
-     * Use croupier and gradient addresses to index into DescriptorStore
-     */
-    private BitTorrentSet bitTorrentSet;
-    private UpperSet upperSet;
-    private LowerSet lowerSet;
-    private List<VodDescriptor> croupierSet = new ArrayList<VodDescriptor>();
-    private List<VodDescriptor> gradientSet = new ArrayList<VodDescriptor>();
-    /**
-     * This contains all the most up-to-date VodDescriptors.
-     */
-    private DescriptorStore store;
-    private long readingPeriod;
-    private int bitTorrentSetSize, upperSetSize, lowerSetSize;
-    private Map<VodAddress, Long> suspected;
-    private Map<Integer, List<VodAddress>> forwarded;
-    private Map<Integer, Long> utilityAfterTime;
-    private Map<Integer, Integer> rest;
+
     private Map<Integer, Long> srtts = new HashMap<Integer, Long>();
     private Map<Integer, Double> rtos = new HashMap<Integer, Double>();
     private Map<TimeoutId, Long> rttMsgs = new HashMap<TimeoutId, Long>();
@@ -162,60 +174,6 @@ public final class Vod extends MsgRetryComponent {
     // TODO: vary β based on the observed variance in measured round-trip times.
     // RTO(i) = β * SRTT(i)
     private double tcpBeta = 2.0d;
-    private Storage storage;
-    private String torrentFileAddress;
-    private String videoName;
-    private long length;
-    private long startedAtTime, stoppedReadingAtTime;
-    private float piecesFromUtilitySet = 0, piecesFromUpperSet = 0;
-    private int bufferingNum = 0;
-    private AtomicInteger pieceToRead = new AtomicInteger(0);
-    private AtomicBoolean buffering = new AtomicBoolean(true);
-    private int pipeSize;
-    private int infUtilFrec;
-    private int count = 0;
-    private int waiting = 0;
-    private int misConnect = 0;
-    private int seed;
-    private boolean seeder = false;
-    private long bufferingTime = 0;
-    private Random random;
-    private int bufferingWindow;
-    private int commWinSize;
-    private long bW;
-    private int time = 1;
-    private boolean freeRider;
-    private List<VodAddress> choked;
-    private Map<VodAddress, Long> downloadedFrom;
-    private int overhead;
-    private List<VodAddress> chokedUnder;
-    private Map<Integer, PieceInTransit> partialPieces;
-    private long startJumpForward, totalJumpForward = 0;
-    private boolean jumped = false;
-    private Map<Integer, VodDescriptor> fingers = new HashMap<Integer, VodDescriptor>();
-    private boolean rebootstrap = false;
-    private Sender sender;
-//    private boolean read = false;
-    private boolean simulation;
-    private Vod comp;
-    private int ackTimeout;
-    private Map<TimeoutId, Integer> outstandingAck;
-    private DownloadStats downloadStats = new DownloadStats();
-    private Map<Integer, List<VodAddress>> hashRequests;
-    private List<TimeoutId> outstandingHashRequest;
-    private Map<TimeoutId, Map<Integer, ByteBuffer>> awaitingHashResponses;
-    private int maxWindowSize = 0;
-    private AtomicInteger nextPieceToSend = new AtomicInteger(0);
-    private GMain main;
-    private int totalNumPiecesDownloaded = 0;
-    private int numRoundsNoPiecesDownloaded = 0;
-    private int mtu;
-    private BaseHandler handler;
-    private TimeoutId initiateShuffleTimeoutId,
-            dataOfferPeriodTimeoutId, readTimerId;
-    private Map<Integer, Long> ongoingConnectRequests = new HashMap<Integer, Long>();
-    private VodConfiguration config;
-    private String compName;
 
     class DisconnectTimeout extends Timeout {
 
@@ -243,59 +201,30 @@ public final class Vod extends MsgRetryComponent {
         this.delegator.doAutoSubscribe();
 
         downloadedFrom = new HashMap<VodAddress, Long>();
-        chokedUnder = new ArrayList<VodAddress>();
         suspected = new HashMap<VodAddress, Long>();
         forwarded = new HashMap<Integer, List<VodAddress>>();
-        utilityAfterTime = new HashMap<Integer, Long>();
-        rest = new HashMap<Integer, Integer>();
-
-        utilityAfterTime.put(0, new Long(0));
-        choked = new ArrayList<VodAddress>();
-        partialPieces = new HashMap<Integer, PieceInTransit>();
-        outstandingAck = new HashMap<TimeoutId, Integer>();
-        hashRequests = new HashMap<Integer, List<VodAddress>>();
         outstandingHashRequest = new ArrayList<TimeoutId>();
         awaitingHashResponses = new HashMap<TimeoutId, Map<Integer, ByteBuffer>>();
+        ongoingConnectRequests = new HashMap<Integer, Long>();
         comp = this;
     }
-    /**
-     * handles a request to init the component
-     */
+
     Handler<VodInit> handleInit = new Handler<VodInit>() {
         @Override
         public void handle(VodInit init) {
-            logger.trace(compName + "handle setsInit");
+            logger.debug("{} - init", compName);
             self = init.getSelf();
+            self.updateUtility(new UtilityVod(init.getUtility()));
             config = init.getConfig();
             simulation = init.isSimulation();
-//            if (simulation) {
-//                read = true;
-//            }
             compName = "(" + self.getId() + "," + self.getOverlayId() + ") ";
-            overhead = 20;
-            bitTorrentSetSize = config.getBitTorrentSetSize();
-            upperSetSize = config.getUpperSetSize();
-            lowerSetSize = config.getLowerSetSize();
-//            offset = config.getOffset();
-            self.updateUtility(new UtilityVod(init.getUtility()));
-            videoName = config.getName();
-            length = config.getLength();
-            readingPeriod = config.getReadingPeriod();
-            pipeSize = config.getPipeSize();
-            seed = config.getSeed();
-            random = new Random(seed);
-            infUtilFrec = config.getInfUtilFrec();
-            ackTimeout = config.getAckTimeout();
-            commWinSize = config.getComWinSize();
-            bufferingWindow = config.getBufferingWindow();
-            mtu = config.getMtu();
-            logger.trace(compName + "finish setInit");
-            logger.debug(compName + "COMMS_WIN_SIZE = " + commWinSize);
-            logger.debug(compName + "PIPELINE_SIZE = " + pipeSize);
-            logger.info(compName + "JOIN. SELF == {}", self.getAddress());
-            torrentFileAddress = init.getTorrentFileAddress();
+
             bW = init.getDownloadBw();
-            main = init.getMain();
+
+            String videoName = config.getName();
+            long videoLength = config.getLength();
+            boolean seeder = init.isSeed();
+            String torrentFileAddress = init.getTorrentFileAddress();
 
             if (!simulation) {
 
@@ -308,9 +237,9 @@ public final class Vod extends MsgRetryComponent {
                         String postfix = FileUtils.getPostFix(videoName);
                         handler = null;
                         if (postfix.compareToIgnoreCase(".flv") == 0) {
-                            handler = new FlvHandler(main, comp);
+                            handler = new FlvHandler(init.getMain(), comp);
                         } else if (postfix.compareToIgnoreCase(".mp4") == 0) {
-                            handler = new Mp4Handler(main, comp);
+                            handler = new Mp4Handler(init.getMain(), comp);
                         } else {
                             throw new IllegalArgumentException("Invalid file type: " + postfix);
                         }
@@ -332,18 +261,35 @@ public final class Vod extends MsgRetryComponent {
                 }
             }
 
-            store = new DescriptorStore(seed);
-            bitTorrentSet = new BitTorrentSet(self, store, bitTorrentSetSize, seed);
-            upperSet = new UpperSet(self, store, upperSetSize, seed);
-            lowerSet = new LowerSet(self, store, lowerSetSize, seed);
-            freeRider = init.isFreeRider();
-            buffering.set(true);
+            long readingPeriod = config.getReadingPeriod();
+            ackTimeout = config.getAckTimeout();
+            mtu = config.getMtu();
+            logger.info(compName + "JOIN. SELF == {}", self.getAddress());
 
-            pieceToRead.set(init.getUtility() * BitField.NUM_PIECES_PER_CHUNK);
-
-            logger.info(compName + "freerider = {}", freeRider);
-
-            boolean seeder = init.isSeed();
+            connectionMngr = new ConnectionManager(config, new ConnectionDelegator(), self, compName);
+            Storage storage;
+            try {
+                storage = buildStorage(seeder, simulation, torrentFileAddress, videoName, videoLength);
+            } catch (IOException ex) {
+                //TODO Alex what to do
+                throw new RuntimeException(ex);
+            }
+            if (seeder) {
+                self.updateUtility(new UtilityVod(VodConfig.SEEDER_UTILITY_VALUE));
+                UtilityVod myUtility = (UtilityVod) self.getUtility();
+                connectionMngr.getBitTorrentStats().changeUtility(myUtility.getChunk(), myUtility,
+                        storage.getBitField().numberPieces(), storage.getBitField());
+            } else {
+                UtilityVod myUtility = (UtilityVod) self.getUtility();
+                myUtility.setChunk(storage.getBitField().setNextUncompletedChunk(myUtility.getChunk()));
+                connectionMngr.getBitTorrentStats().changeUtility(myUtility.getChunk() - myUtility.getOffset(),
+                        myUtility, storage.getBitField().numberPieces(), storage.getBitField());
+            }
+            historyMngr = new HistoryManager();
+            historyMngr.registerDownload(0, storage.needed());
+            historyMngr.registerUtility(0, 0);
+            playerMngr = new PlayerManager(init, compName);
+            downloadMngr = new DownloadManager(init, self, new DownloadDelegator(), storage, connectionMngr, historyMngr, playerMngr, compName);
 
             SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(config.getShufflePeriod(),
                     config.getShufflePeriod());
@@ -356,399 +302,147 @@ public final class Vod extends MsgRetryComponent {
             delegator.doTrigger(spt, timer);
             dataOfferPeriodTimeoutId = spt.getTimeoutEvent().getTimeoutId();
 
-            File metaInfoFile = new File(torrentFileAddress);
-
+            if (!seeder && simulation) {
+                spt = new SchedulePeriodicTimeout(readingPeriod, readingPeriod);
+                spt.setTimeoutEvent(new Read(spt));
+                delegator.doTrigger(spt, timer);
+                readTimerId = spt.getTimeoutEvent().getTimeoutId();
+                if (init.isPlay()) {
+                    play();
+                }
+            }
+            // update % in Swing GUI
             if (seeder) {
-                freeRider = false;
-                buffering.set(false);
                 try {
-                    if (simulation) {
-                        logger.debug(compName + "new storage");
-                        storage = new StorageSimu(videoName, length);
-                        storage.create(null);
-                        FileOutputStream fos = new FileOutputStream(torrentFileAddress);
-                        logger.debug(compName + "write .data");
-                        fos.write(storage.getMetaInfo().getData());
-                        fos.close();
+                    ActiveTorrents.makeSeeder(torrentFileAddress);
+                } catch (ActiveTorrentsException ex) {
+                    //TODO Alex what to do
+                    throw new RuntimeException(ex);
+                }
+            } else {
+                ActiveTorrents.updatePercentage(videoName, storage.percent());
+            }
+        }
+    };
+
+    private Storage buildStorage(boolean seeder, boolean simulation, String torrentFileAddress, String videoName, long videoLength) throws IOException {
+        File metaInfoFile = new File(torrentFileAddress);
+        Storage storage = null;
+
+        if (seeder) {
+            try {
+                if (simulation) {
+                    logger.debug("{} new storage", compName);
+                    storage = new StorageSimu(videoName, videoLength);
+                    storage.create(null);
+                    FileOutputStream fos = new FileOutputStream(torrentFileAddress);
+                    logger.debug("{} write .data", compName);
+                    fos.write(downloadMngr.storage.getMetaInfo().getData());
+                    fos.close();
+                } else {
+                    FileInputStream in = new FileInputStream(metaInfoFile);
+                    MetaInfoExec metaInfo = new MetaInfoExec(in, torrentFileAddress);
+                    if (MEM_MAP_VOD_FILES) {
+                        storage = new StorageMemMapWholeFile(metaInfo, metaInfoFile.getParent(), true);
                     } else {
-                        MetaInfoExec metaInfo = null;
-                        if (storage == null) {
-                            FileInputStream in = new FileInputStream(metaInfoFile);
-                            metaInfo = new MetaInfoExec(in, torrentFileAddress);
-                            if (MEM_MAP_VOD_FILES) {
-                                storage = new StorageMemMapWholeFile(metaInfo,
-                                        metaInfoFile.getParent(), true);
-                            } else {
-                                storage = new StorageFcByteBuf(metaInfo,
-                                        metaInfoFile.getParent(), true);
-                            }
-                        } else {
-                            metaInfo = (MetaInfoExec) storage.getMetaInfo();
-                            // we passed in a storage object, so we must have created
-                            // this storage file locally - no need to check it.
-                        }
-                        storage.check(false);
-                        if (storage.needed() != 0) {
-                            // TODO JIM - fix this behaviour, shouldn't quit.
-                            //not truly a seed => quit
-                            logger.warn(compName + "The movie file does not correspond to the data file the seed will quit for:"
-                                    + metaInfo.getName());
+                        storage = new StorageFcByteBuf(metaInfo, metaInfoFile.getParent(), true);
+                    }
+                    storage.check(false);
+                    if (storage.needed() != 0) {
+                        // TODO JIM - fix this behaviour, shouldn't quit.
+                        //not truly a seed => quit
+                        logger.warn("{} The movie file does not correspond to the data file the seed will quit for:",
+                                new Object[]{compName, metaInfo.getName()});
 //                            delegator.doTrigger(new QuitCompleted(self.getId()), vod);
 //                            seeder = false;
-                        }
                     }
-                    ActiveTorrents.makeSeeder(torrentFileAddress);
-                    rest.put(0, storage.needed());
-                    self.updateUtility(new UtilityVod(VodConfig.SEEDER_UTILITY_VALUE));
-                    UtilityVod utility = (UtilityVod) self.getUtility();
-                    bitTorrentSet.getStats().changeUtility(utility.getChunk(), utility,
-                            storage.getBitField().numberPieces(),
-                            storage.getBitField());
-                    logger.info(compName + storage.getBitField().getHumanReadable2());
-                } catch (IOException e) {
-                    logger.error(compName + "problem while trying to initialize the seed: " + e.getMessage(), e);
-                    logger.error(compName + "Metafile: " + torrentFileAddress);
-                    return;
                 }
-            } else { // not a seeder
-                try {
-                    FileInputStream in = new FileInputStream(metaInfoFile);
-                    if (simulation) {
-                        MetaInfoSimu metaInfo = new MetaInfoSimu(in);
-                        storage = new StorageSimu(metaInfo);
-                    } else {
-                        MetaInfoExec metaInfo = new MetaInfoExec(in, torrentFileAddress);
-                        if (Vod.MEM_MAP_VOD_FILES) {
-                            storage = new StorageMemMapWholeFile(metaInfo,
-                                    metaInfoFile.getParent(), false);
-                        } else {
-                            storage = new StorageFcByteBuf(metaInfo,
-                                    metaInfoFile.getParent(), false);
-                        }
-                    }
-                    logger.info(compName + "check storage: " + storage.getMetaInfo().getName());
-                    storage.check(true);
-                    rest.put(0, storage.needed());
-                    UtilityVod myUtility = (UtilityVod) self.getUtility();
-                    myUtility.setChunk(storage.getBitField().setNextUncompletedChunk(myUtility.getChunk()));
-                    bitTorrentSet.getStats().changeUtility(myUtility.getChunk() - myUtility.getOffset(),
-                            myUtility, storage.getBitField().numberPieces(),
-                            storage.getBitField());
-
-                    logger.trace(compName + "print infos");
-                    logger.info(compName + storage.getBitField().getHumanReadable2());
-
-                } catch (Exception e) {
-                    logger.error(compName + "problem while initializing the torrent file in GVod: {} ", e);
-                    //TODO: Does it need to send a message to the upper layer?
-//                    delegator.doTrigger(new QuitCompleted(self.getId(), metaInfoAddress), vod);
-                    throw new IllegalStateException("Could not create video file. Error: " + e.getMessage());
-                }
-                startedAtTime = System.currentTimeMillis();
-                stoppedReadingAtTime = startedAtTime;
+                logger.info("{} - {} ", compName, storage.getBitField().getHumanReadable2());
+            } catch (IOException e) {
+                logger.error(compName + "problem while trying to initialize the seed: " + e.getMessage(), e);
+                logger.error(compName + "Metafile: " + torrentFileAddress);
+                throw new IllegalStateException("Could not create video file. Error: " + e.getMessage());
+            }
+        } else { // not a seeder
+            try {
+                FileInputStream in = new FileInputStream(metaInfoFile);
                 if (simulation) {
-                    spt = new SchedulePeriodicTimeout(readingPeriod, readingPeriod);
-                    spt.setTimeoutEvent(new Read(spt));
-                    delegator.doTrigger(spt, timer);
-                    readTimerId = spt.getTimeoutEvent().getTimeoutId();
-                    if (init.isPlay()) {
-                        play();
+                    MetaInfoSimu metaInfo = new MetaInfoSimu(in);
+                    storage = new StorageSimu(metaInfo);
+                } else {
+                    MetaInfoExec metaInfo = new MetaInfoExec(in, torrentFileAddress);
+                    if (Vod.MEM_MAP_VOD_FILES) {
+                        storage = new StorageMemMapWholeFile(metaInfo,
+                                metaInfoFile.getParent(), false);
+                    } else {
+                        storage = new StorageFcByteBuf(metaInfo,
+                                metaInfoFile.getParent(), false);
                     }
                 }
+                logger.info("{} check storage: {}", compName, storage.getMetaInfo().getName());
+                storage.check(true);
+                logger.info("{} - {}", compName, storage.getBitField().getHumanReadable2());
+            } catch (IOException e) {
+                logger.error("{} problem while initializing the torrent file in GVod: {} ", compName, e);
+                //TODO: Does it need to send a message to the upper layer?
+//                    delegator.doTrigger(new QuitCompleted(self.getId(), metaInfoAddress), vod);
+                throw new IllegalStateException("Could not create video file. Error: " + e.getMessage());
             }
-
-            // update % in Swing GUI
-            ActiveTorrents.updatePercentage(videoName, storage.percent());
         }
-    };
 
-    private void cancelPeriodicTimer(TimeoutId timerId) {
-        if (timerId != null) {
-            CancelPeriodicTimeout cPT = new CancelPeriodicTimeout(timerId);
-            delegator.doTrigger(cPT, timer);
-        }
+        return storage;
     }
-    /**
-     * Handle a rebootstrap response to rejoin a GVod network using a set of
-     * introducer nodes provided in the Join event.
-     */
-    Handler<RebootstrapResponse> handleRebootstrapResponse = new Handler<RebootstrapResponse>() {
-        @Override
-        public void handle(RebootstrapResponse event) {
 
-            List<VodDescriptor> insiders = event.getVodInsiders();
-            rebootstrap = false;
-            logger.debug(compName + "handle rebootstrap response {}", insiders.size());
-            if (insiders.size() > 0) {
-                List<VodDescriptor> descriptors = event.getVodInsiders();
-                if (!seeder) {
-                    for (VodDescriptor entry : descriptors) {
-                        if (!self.getAddress().equals(entry.getVodAddress())) {
-                            triggerConnectRequest(entry, false);
-                        }
-                    }
-                }
-            }
-        }
-    };
-    Handler<CroupierSample> handleCroupierSample = new Handler<CroupierSample>() {
-        @Override
-        public void handle(CroupierSample event) {
-
-            List<VodDescriptor> descriptors = event.getNodes();
-            logger.debug(compName + "handle UpdatedDescriptors response {}", descriptors.size());
-            if (descriptors.size() > 0) {
-                croupierSet.clear();
-                StringBuilder sb = new StringBuilder();
-                for (VodDescriptor entry : descriptors) {
-                    if (!self.getAddress().equals(entry.getVodAddress())) {
-                        croupierSet.add(entry);
-                        sb.append(entry.getId()).append(", ");
-                    }
-                }
-                logger.info(compName + "Croupier just sent us descriptors: {}", sb.toString());
-
-                // Connect to returned nodes immediately if no neighbours and not seeding.
-                UtilityVod utility = (UtilityVod) self.getUtility();
-                if (bitTorrentSet.size() == 0 && upperSet.size() == 0
-                        && utility.isSeeder() == false) {
-                    updateSetsAndConnect();
-                }
-            }
-        }
-    };
-    /**
-     * handle called each round to choke, unchoke
-     */
     Handler<InitiateMembershipSearch> handleInitiateMembershipSearch = new Handler<InitiateMembershipSearch>() {
         @Override
         public void handle(InitiateMembershipSearch event) {
             logger.trace(compName + "initiateshuffle");
             time++;
 
-            UtilityVod utility = (UtilityVod) self.getUtility();
+            historyMngr.registerUtility(time, ((UtilityVod) self.getUtility()).getPiece());
+            historyMngr.registerDownload(time, downloadMngr.storage.needed());
+            connectionMngr.incrementAge();
+            connectionMngr.chokeUnchoke(time, downloadMngr.seeder);
+            downloadMngr.download(time);
 
-            // stats for experiment
-            if (time % 30 == 0) {
-                if (utility.getPiece() < 0) {
-                    utilityAfterTime.put(time, utilityAfterTime.get(time - 30));
-                } else {
-                    utilityAfterTime.put(time, utility.getPiece());
-                }
-            }
-
-            /*
-             * history of the number of pieces still to download
-             * to evaluate the speed at which the node is downloading
-             */
-            if (time % 10 == 0 && rest != null) {
-                rest.put(time, storage.needed());
-            }
-            /*
-             * cleaning the history of old values
-             */
-            List<Integer> toRemove = new ArrayList<Integer>();
-            for (int t : rest.keySet()) {
-                if (time - t > 30) {
-                    toRemove.add(t);
-                }
-            }
-            for (int t : toRemove) {
-                rest.remove(t);
-            }
-
-            bitTorrentSet.incrementDescriptorAges();
-            upperSet.incrementDescriptorAges();
-            lowerSet.incrementDescriptorAges();
-
-            Set<VodAddress> toChokeUnder = new HashSet<VodAddress>();
-            Set<VodAddress> toChoke = new HashSet<VodAddress>();
-
-            /*
-             * every NUM_CYCLES_QUERY_GRANDCHILDREN cycles we ask the sending 
-             * rate of our children to our grandchildren
-             */
-            int count = 0;
-
-            /*
-             * optimistic unchoke
-             */
-            if (choked.size() > 0 && time % (VodConfig.NUM_CYCLES_QUERY_GRANDCHILDREN * 3) == 0
-                    && bitTorrentSet.size() + lowerSet.size() < bitTorrentSet.getMaxSize()) {
-                // Choke bittorrent set
-                // TODO: Should I not unchoke based on download stats for nodes?
-                int i = random.nextInt(choked.size());
-                toChoke.remove(choked.get(i));
-                choked.remove(i);
-            }
-            if (chokedUnder.size() > 0 && time % (VodConfig.NUM_CYCLES_QUERY_GRANDCHILDREN * 3) == 0
-                    && ((!seeder
-                    && lowerSet.size() + bitTorrentSet.size() < lowerSet.getMaxSize())
-                    || (seeder && (lowerSet.size() < lowerSet.getMaxSize()
-                    && bitTorrentSet.size() < bitTorrentSet.getMaxSize())))) {
-                // Choke below set
-                if (count == 0) {
-                    count = 1;
-                }
-                for (int j = 0; j < count; j++) {
-                    int i = random.nextInt(chokedUnder.size());
-                    logger.debug(compName + "SEEDER OPTIMISTIC UNCHOKE: {}",
-                            chokedUnder.get(i).getPeerAddress().getId());
-                    toChokeUnder.remove(chokedUnder.get(i));
-                    chokedUnder.remove(i);
-                }
-
-            }
-
-            for (VodAddress add : toChokeUnder) {
-                bitTorrentSet.remove(add);
-                lowerSet.remove(add);
-                // TODO: Should I keep the NAT table entry open to enable
-                // quick connection again after disconnect?
-                triggerDisconnectRequest(add, false);
-            }
-            for (VodAddress add : toChoke) {
-                bitTorrentSet.remove(add);
-                triggerDisconnectRequest(add, false);
-            }
-
-            if (storage.getBitField().getNextUncompletedPiece()
-                    >= storage.getBitField().numberPieces() && !seeder) {
-                finishedDownloading();
-            }
-            startDownload();
-
-            updateSetsAndConnect();
+            connectionMngr.updateSetsAndConnect(downloadMngr.seeder);
 
             SummaryStatistics windowStats = new SummaryStatistics();
-            for (VodDescriptor node : bitTorrentSet.getAll()) {
+            for (VodDescriptor node : connectionMngr.bitTorrentSet.getAll()) {
                 windowStats.addValue(node.getWindow().getSize());
             }
-            for (VodDescriptor node : lowerSet.getAll()) {
+            for (VodDescriptor node : connectionMngr.lowerSet.getAll()) {
                 windowStats.addValue(node.getWindow().getSize());
             }
-            if (windowStats.getMean() / VodConfig.LB_MAX_SEGMENT_SIZE < pipeSize) {
+            if (windowStats.getMean() / VodConfig.LB_MAX_SEGMENT_SIZE < downloadMngr.pipeSize) {
                 delegator.doTrigger(new SlowBackground(self.getOverlayId()), vod);
-            } else if (windowStats.getMean() / VodConfig.LB_MAX_SEGMENT_SIZE > pipeSize * 2) {
+            } else if (windowStats.getMean() / VodConfig.LB_MAX_SEGMENT_SIZE > downloadMngr.pipeSize * 2) {
                 delegator.doTrigger(new SpeedBackground(self.getOverlayId()), vod);
             }
         }
     };
 
-    private void cleanupPartialPieces() {
-        Collection<PieceInTransit> piecesInTransit = partialPieces.values();
-        List<PieceInTransit> stalePieces = new ArrayList<PieceInTransit>();
+    Handler<CroupierSample> handleCroupierSample = new Handler<CroupierSample>() {
+        @Override
+        public void handle(CroupierSample event) {
+            List<VodDescriptor> descriptors = event.getNodes();
 
-        for (PieceInTransit p : piecesInTransit) {
-            if (p.isStalePiece(VodConfig.DATA_REQUEST_TIMEOUT)) {
-                stalePieces.add(p);
-            }
-        }
-        List<Integer> staleKeys = new ArrayList<Integer>();
+            logger.debug("{} Croupier sample size {}", compName, descriptors.size());
+            connectionMngr.newCroupierSet(descriptors);
 
-        for (Entry<Integer, PieceInTransit> entry : partialPieces.entrySet()) {
-            for (PieceInTransit p : stalePieces) {
-                if (p.equals(entry.getValue())) {
-                    staleKeys.add(entry.getKey());
+            if (descriptors.size() > 0) {
+                StringBuilder sb = new StringBuilder();
+                for (VodDescriptor descriptor : event.getNodes()) {
+                    if (!self.getAddress().equals(descriptor.getVodAddress())) {
+                        sb.append(descriptor.getId()).append(", ");
+                    }
                 }
+
+                logger.debug("{} Croupier just sent us descriptors: {}", compName, sb.toString());
             }
         }
+    };
 
-        for (Integer k : staleKeys) {
-            partialPieces.remove(k);
-            logger.debug("Cleaning up stale partial piece: {}", k);
-        }
-
-    }
-
-    /**
-     * start to download pieces from any peer in the neighborhood where we have
-     * space in our pipeline for it
-     */
-    private void startDownload() {
-        logger.trace(compName + "Starting download.");
-
-        // First check if all of the pieces have been downloaded
-        if (storage.complete()) {
-            logger.info(compName + "storage finished. Not downloading.");
-            return;
-        }
-
-        // Check if the last piece has been downloaded (i may have skipped over some of the pieces).
-        if (storage.getBitField().getNextUncompletedPiece() >= storage.getBitField().numberPieces()) {
-            logger.trace(compName + "storage finished or first uncompleted piece > lastPiece {}/{}",
-                    storage.getBitField().getNextUncompletedPiece(),
-                    storage.getBitField().numberPieces());
-            return;
-        }
-        boolean noDownloading = true;
-
-        for (VodAddress add : upperSet.getAllAddress()) {
-
-            // TODO - Not DRY code - same code repeated in the next while-loop
-            VodDescriptor peer = store.getVodDescriptorFromVodAddress(add);
-            logger.info(compName + "Downloading: Pipeline size {} . Max size {}",
-                    peer.getRequestPipeline().size(), peer.getPipeSize());
-
-            peer.cleanupPipeline();
-            cleanupPartialPieces();
-            if (peer.getRequestPipeline().size() < peer.getPipeSize()) {
-                startDownloadingPieceFrom(add,
-                        peer.getPipeSize() - peer.getRequestPipeline().size(),
-                        null, 0);
-                noDownloading = false;
-            } else {
-                peer.cleanupPipeline();
-            }
-            if (numRoundsNoPiecesDownloaded > 5) {
-                peer.clearPipeline();
-            }
-        }
-        List<VodAddress> list = bitTorrentSet.getAllAddress();
-        while (list.size() > 0) {
-            int i = random.nextInt(list.size());
-            VodAddress add = list.get(i);
-            VodDescriptor peer = store.getVodDescriptorFromVodAddress(add);
-            logger.info(compName + "Pipeline size {} . Max size {}",
-                    peer.getRequestPipeline().size(), peer.getPipeSize());
-
-            peer.cleanupPipeline();
-            if (peer.getRequestPipeline().size() < peer.getPipeSize()) {
-                startDownloadingPieceFrom(add,
-                        peer.getPipeSize() - peer.getRequestPipeline().size(),
-                        null, 0);
-                noDownloading = false;
-            }
-            list.remove(add);
-            if (numRoundsNoPiecesDownloaded > 3) {
-                peer.clearPipeline();
-            }
-        }
-        if (noDownloading) {
-            logger.warn(compName + "No downloading. BittorrentSet size {}. UpperSet size {}",
-                    bitTorrentSet.size(), upperSet.size());
-            if (numRoundsNoPiecesDownloaded > 3) {
-                numRoundsNoPiecesDownloaded = 0;
-            } else {
-                numRoundsNoPiecesDownloaded++;
-            }
-        }
-
-    }
-
-    /**
-     * send a rebootstrap request to the bootstrap server
-     */
-    private void rebootstrap() {
-        if (rebootstrap) {
-            return;
-        }
-        logger.info(compName + "rebootstrap");
-        int videoId = ActiveTorrents.calculateVideoId(videoName);
-        UtilityVod utility = (UtilityVod) self.getUtility();
-        delegator.doTrigger(new Rebootstrap(self.getId(), videoId, utility), vod);
-        rebootstrap = true;
-    }
     /**
      * handle connect request containing the useful information about the node
      * wanting to connect : utility, id, children (if in below set). If the node
@@ -756,8 +450,8 @@ public final class Vod extends MsgRetryComponent {
      */
     Handler<ConnectMsg.Request> handleConnectRequest = new Handler<ConnectMsg.Request>() {
         @Override
-        public void handle(ConnectMsg.Request event) {
-            logger.debug(compName + "ConnectRequest from {}", event.getVodSource().getId());
+        public void handle(ConnectMsg.Request req) {
+            logger.debug("{} ConnectRequest from {}", compName, req.getVodSource().getId());
             /*
              * if the node receive a request before it received a join message
              * can happen if a node disconnects and reconnects with the same id
@@ -765,474 +459,177 @@ public final class Vod extends MsgRetryComponent {
             if (self == null) {
                 return;
             }
-            msgReceived(event.getVodSource());
 
-            ConnectMsg.Response response;
+            msgReceived(req.getVodSource());
+
+            //TODO Alex is the behaviour below the wanted one?
             /*
              * if the node asking to connect was choked we ignore the request
              */
-            if (chokedUnder.contains(event.getVodSource())
-                    || choked.contains(event.getVodSource())) {
-                logger.info(compName + "choking {}", event.getVodSource().getId());
+            if (connectionMngr.isChoked(req.getVodSource())) {
+                logger.info("{} - chocked {}", compName, req.getVodSource().getId());
                 return;
             }
 
             UtilityVod myUtility = (UtilityVod) self.getUtility();
-            /*
-             * check in which set the node should be in and if there is space for it
-             * send the answer corresponding to the resultant set.
-             * If node's utility is in the UtilitySet range, join the utilitySet.
-             * If lower, join belowSet, if higher, join upperSet.
-             * utility < 0 => seeder
-             */
-            List<VodAddress> toBeRemoved = new ArrayList<VodAddress>();
-            if ((myUtility.isSeeder() && event.isToUtilitySet())
-                    || !myUtility.notInBittorrentSet(event.getUtility())) {
-                logger.debug(compName + "UTILITY SET -  received connectRequest from {}",
-                        event.getVodSource().getId());
-                // UTILITY SET
-                upperSet.remove(event.getVodSource());
-                lowerSet.remove(event.getVodSource());
-                toBeRemoved = bitTorrentSet.add(event.getVodSource(), event.getUtility(),
-                        commWinSize, pipeSize, maxWindowSize,
-                        event.getMtu());
-                if (!toBeRemoved.contains(event.getVodSource())) {
-                    logger.debug(compName + "accepted to connect to {} with utility ",
-                            event.getVodSource().getId());
+            ConnectMsg.Response response;
+            Pair<ConnectMsg.ResponseType, Boolean> responseType = connectionMngr.processConnectReq(req, downloadMngr.pipeSize, downloadMngr.seeder);
+            switch (responseType.getValue0()) {
+                case OK:
                     if (myUtility.getChunk() >= 0) {
-                        response = new ConnectMsg.Response(self.getAddress(), event.getVodSource(),
-                                event.getTimeoutId(),
-                                ConnectMsg.ResponseType.OK,
-                                myUtility, storage.getBitField().getChunkfield(),
-                                storage.getBitField().getAvailablePieces(myUtility),
-                                true, mtu);
-                        // TODO - should never reach here, as this can't be a seed,
-                        // as utility.getChunk() > 0 ???
-                        if (seeder) {
-                            logger.warn(compName + "SHOULDNT REACH HERE!");
-                            store.getVodDescriptorFromVodAddress(event.getVodSource()).setUploadRate(0);
-                        }
+                        response = new ConnectMsg.Response(self.getAddress(), req.getVodSource(), req.getTimeoutId(),
+                                ConnectMsg.ResponseType.OK, myUtility, downloadMngr.storage.getBitField().getChunkfield(),
+                                downloadMngr.storage.getBitField().getAvailablePieces(myUtility), responseType.getValue1(), mtu);
                     } else {
-                        response = new ConnectMsg.Response(self.getAddress(), event.getVodSource(),
-                                event.getTimeoutId(), ConnectMsg.ResponseType.OK,
-                                myUtility, null, null, true, mtu);
-                        if (seeder) {
-                            store.getVodDescriptorFromVodAddress(event.getVodSource()).setUploadRate(0);
-                        }
+                        response = new ConnectMsg.Response(self.getAddress(), req.getVodSource(), req.getTimeoutId(),
+                                ConnectMsg.ResponseType.OK, myUtility, null, null, responseType.getValue1(), mtu);
                     }
-                    logger.trace(compName + "send {} response to {}", ConnectMsg.ResponseType.OK,
-                            event.getVodSource().getId());
-                } else {
-                    logger.debug(compName + "removed {} from neighbourhood (handleConnectRequest1)",
-                            event.getVodSource().getId());
-                    store.suppress(event.getVodSource());
-                    toBeRemoved.remove(event.getVodSource());
-                    response = new ConnectMsg.Response(self.getAddress(), event.getVodSource(),
-                            event.getTimeoutId(), ConnectMsg.ResponseType.FULL,
-                            myUtility, null, null, true, mtu);
-                    logger.debug(compName + "send {} response to {}", ConnectMsg.ResponseType.FULL,
-                            event.getVodSource().getId());
-                }
-            } else if (event.getUtility().getChunk() <= myUtility.getChunk() - myUtility.getOffset()
-                    || (myUtility.isSeeder() && !event.isToUtilitySet())) {
-                // BELOW SET or I am a SUPER-PEER and request is not to my utilitySet
-                logger.debug(compName + "upperset {} ConnectRequest", event.getVodSource().getId());
-
-                upperSet.remove(event.getVodSource());
-                bitTorrentSet.remove(event.getVodSource());
-                if (myUtility.isSeeder()) {
-                    // +10 is to get the chunk piece from -10 (seeder) up to 0.
-//                    UtilityVod uti = new UtilityVod(
-                    //                            storage.getBitField().getChunkFieldSize() + 10
-//                            storage.getBitField().getChunkFieldSize() - VodConfig.SEEDER_UTILITY_VALUE,
-//                             VodConfig.SEEDER_UTILITY_VALUE,
-//                            storage.getBitField().pieceFieldSize(), offset);
-                    toBeRemoved = lowerSet.add(event.getVodSource(), event.getUtility(),
-                            //                            uti, 
-                            (UtilityVod) self.getUtility(),
-                            commWinSize, pipeSize, maxWindowSize, event.getMtu());
-                } else {
-                    toBeRemoved = lowerSet.add(event.getVodSource(), event.getUtility(),
-                            myUtility, commWinSize, pipeSize, maxWindowSize, event.getMtu());
-                }
-                if (!toBeRemoved.contains(event.getVodSource())) {
-                    if (myUtility.getChunk() >= 0) {
-                        response = new ConnectMsg.Response(self.getAddress(), event.getVodSource(),
-                                event.getTimeoutId(),
-                                ConnectMsg.ResponseType.OK,
-                                myUtility, storage.getBitField().getChunkfield(),
-                                storage.getBitField().getAvailablePieces(myUtility),
-                                false, mtu);
-                        VodDescriptor nodeDescriptor = store.getVodDescriptorFromVodAddress(event.getVodSource());
-                        if (nodeDescriptor != null) {
-                            nodeDescriptor.setUploadRate(0);
-                        } else {
-                            logger.warn(compName + "Node was not in Neighbourhood when trying to update uploadRate for node");
-                            store.add(event.getVodSource(), event.getUtility(),
-                                    false, commWinSize, pipeSize, maxWindowSize,
-                                    event.getMtu());
-                        }
-                        logger.debug(compName + "send {} response to {}", ConnectMsg.ResponseType.OK, event.getVodSource().getId());
-                    } else {
-                        response = new ConnectMsg.Response(self.getAddress(), event.getVodSource(),
-                                event.getTimeoutId(), ConnectMsg.ResponseType.OK,
-                                myUtility, null, null, false, mtu);
-                        VodDescriptor nodeDesc = store.getVodDescriptorFromVodAddress(event.getVodSource());
-                        if (nodeDesc != null) {
-                            nodeDesc.setUploadRate(0);
-                        } else {
-                            logger.warn(compName + "Node was not in Neighbourhood when trying to update uploadRate for node");
-                            store.add(event.getVodSource(), event.getUtility(),
-                                    false, commWinSize, pipeSize, maxWindowSize,
-                                    event.getMtu());
-                        }
-                        logger.debug(compName + "Connect response sent to {}", event.getVodSource().getId());
-                    }
-                } else {
-                    logger.info(compName + "ConnectResponse FULL. removed {} from neighbourhood (handleConnectRequest2)",
-                            event.getVodSource().getId());
-                    store.suppress(event.getVodSource());
-                    toBeRemoved.remove(event.getVodSource());
-                    response = new ConnectMsg.Response(self.getAddress(), event.getVodSource(),
-                            event.getTimeoutId(), ConnectMsg.ResponseType.FULL,
-                            myUtility, null, null, false, mtu);
-                    logger.debug(compName + "send {} response to {}", ConnectMsg.ResponseType.FULL,
-                            event.getVodSource().getId());
-                }
-            } else {
-                if (lowerSet != null) {
-                    lowerSet.remove(event.getVodSource());
-                    upperSet.remove(event.getVodSource());
-                    bitTorrentSet.remove(event.getVodSource());
-                }
-                logger.info(compName + "Connect BAD_UTILITY. remove {} handleConnectRequest2", event.getVodSource().getId());
-                response = new ConnectMsg.Response(self.getAddress(), event.getVodSource(),
-                        event.getTimeoutId(), ConnectMsg.ResponseType.BAD_UTILITY,
-                        myUtility, null, null, false, mtu);
-                logger.warn(compName + "send {} response to {} my utility (" + myUtility.getPiece()
-                        + ";" + myUtility.getChunk() + ") its utility (" + event.getUtility().getPiece()
-                        + ";" + event.getUtility().getChunk() + ")", ConnectMsg.ResponseType.BAD_UTILITY,
-                        event.getVodSource().getId());
+                    break;
+                case FULL:
+                    response = new ConnectMsg.Response(self.getAddress(), req.getVodSource(), req.getTimeoutId(),
+                            ConnectMsg.ResponseType.FULL, myUtility, null, null, responseType.getValue1(), mtu);
+                    break;
+                case BAD_UTILITY:
+                    response = new ConnectMsg.Response(self.getAddress(), req.getVodSource(), req.getTimeoutId(),
+                            ConnectMsg.ResponseType.BAD_UTILITY, myUtility, null, null, responseType.getValue1(), mtu);
+                    logger.warn("{} send {} response to {} my utility ({},{}), its utility ({},{})",
+                            new Object[]{compName, ConnectMsg.ResponseType.BAD_UTILITY, req.getVodSource().getId(), myUtility.getPiece(),
+                                myUtility.getChunk(), req.getUtility().getPiece(), req.getUtility().getChunk()});
+                    break;
+                default:
+                    return;
             }
-
-            for (VodAddress add : toBeRemoved) {
-                triggerDisconnectRequest(add, false);
-            }
-            logger.trace(compName + "trigger ConnectResponse " + response.getResponse() + " to "
-                    + response.getDestination().getId());
+            logger.debug("{} send {} response to {}", new Object[]{compName, responseType, req.getVodSource().getId()});
             delegator.doTrigger(response, network);
-
         }
     };
 
-    /**
-     * used periodically for one of the other sets And send a connect request to
-     * the interesting nodes
-     */
-    public void updateSetsAndConnect() {
-        logger.info(compName + "Updating our upper/bittorrent sets with {} nodes from croupier.",
-                croupierSet.size());
-
-        List<VodDescriptor> sendConnect;
-        UtilityVod utility = (UtilityVod) self.getUtility();
-        List<VodDescriptor> toRemove = new ArrayList<VodDescriptor>();
-        for (VodDescriptor des : croupierSet) {
-            if (choked.contains(des.getVodAddress()) || chokedUnder.contains(des.getVodAddress())
-                    || bitTorrentSet.contains(des.getVodAddress())) {
-                toRemove.add(des);
-            }
-            if (des.getVodAddress().equals(self)) {
-                logger.debug(compName + "REMOVED SELF FROM NEIGHBOURS");
-                toRemove.add(des);
-            }
-        }
-        for (VodDescriptor des : toRemove) {
-            logger.info(compName + "Removing croupier descriptor: {}", des.toString());
-            croupierSet.remove(des);
-        }
-
-        sendConnect = upperSet.updateAll(croupierSet, utility);
-        List<VodDescriptor> sentConnectToUpper = new ArrayList<VodDescriptor>();
-        if (!seeder) {
-            for (VodDescriptor node : sendConnect) {
-                logger.info(compName + "Connecting to neighbour {} with utility {}",
-                        node.getId(), node.getUtility().getValue());
-                triggerConnectRequest(node, false);
-                if (node.getUtility().getValue() >= VodConfig.SEEDER_UTILITY_VALUE) {
-                    sentConnectToUpper.add(node);
-                }
-            }
-        }
-        toRemove = new ArrayList<VodDescriptor>();
-        toRemove.addAll(sentConnectToUpper);
-        for (VodDescriptor des : gradientSet) {
-            if (choked.contains(des.getVodAddress()) || chokedUnder.contains(des.getVodAddress())
-                    || upperSet.contains(des.getVodAddress())) {
-                toRemove.add(des);
-                logger.info(compName + "choking {},removing..", des);
-            }
-        }
-        for (VodDescriptor des : toRemove) {
-            gradientSet.remove(des);
-        }
-        sendConnect = bitTorrentSet.updateAll(gradientSet, utility);
-        if (!seeder) {
-            for (VodDescriptor node : sendConnect) {
-                if (!choked.contains(node.getVodAddress())) {
-                    triggerConnectRequest(node, true);
-                }
-            }
-        }
-
-        updatefingers();
-    }
-
-    /**
-     * use the random set to update the finger that we use to restart faster
-     * after a jump
-     */
-    private void updatefingers() {
-        for (VodDescriptor node : croupierSet) {
-            UtilityVod u = (UtilityVod) node.getUtility();
-            if (fingers.get(u.getChunk()) == null) {
-                fingers.put(u.getChunk(), node);
-            } else if (fingers.get(u.getChunk()).getAge() > node.getAge()) {
-                fingers.put(u.getChunk(), node);
-            }
-        }
-    }
-    /**
-     * handle the response to a connect request
-     */
     Handler<ConnectMsg.Response> handleConnectResponse = new Handler<ConnectMsg.Response>() {
         @Override
-        public void handle(ConnectMsg.Response event) {
-            msgReceived(event.getVodSource());
-            ongoingConnectRequests.remove(event.getVodSource().getId());
+        public void handle(ConnectMsg.Response resp) {
+            UtilityVod myUtility = (UtilityVod) self.getUtility();
+            logger.debug("{} ConnectResponse from {}", compName, resp.getVodSource().getId());
+            logger.trace("{} ConnectResponse {} - myUtility ({},{}) - its utility ({},{})",
+                    new Object[]{compName, resp.getResponse(), myUtility.getChunk(), myUtility.getPiece(),
+                        resp.getUtility().getChunk(), resp.getUtility().getPiece()});
+            msgReceived(resp.getVodSource());
+            ongoingConnectRequests.remove(resp.getVodSource().getId());
 
-            UtilityVod utility = (UtilityVod) self.getUtility();
-            TimeoutId timeoutId = event.getTimeoutId();
-            List<VodAddress> toBeRemoved = new ArrayList<VodAddress>();
+            if (delegator.doCancelRetry(resp.getTimeoutId())) {
+                logger.trace("{} Cancelled connectRequest timeout : {}", compName, resp.getTimeoutId());
 
-            logger.trace(compName + "received connectResponse {} from {} myUtility ("
-                    + utility.getChunk() + ";" + utility.getPiece() + ") its ("
-                    + event.getUtility().getChunk() + ";"
-                    + event.getUtility().getPiece()
-                    + ")", event.getResponse(), event.getVodSource().getId());
-            if (delegator.doCancelRetry(timeoutId)) {
-                logger.trace(compName + "Cancelled connectRequest timeout : " + timeoutId);
-
-                if (event.getVodSource().equals(self)) {
-                    logger.warn(compName + "REMOVED SELF FROM CONNECTED NEIGHBOURS");
+                if (resp.getVodSource().equals(self)) {
+                    logger.warn("{} REMOVED SELF FROM CONNECTED NEIGHBOURS", compName);
                     return;
                 }
 
-                /*
-                 * we update the utility in the random view in case we didn't have the latest 
-                 * utility value
-                 */
-//                RandomView.updateUtility(self, event.getVodSource(), event.getUtility());
-                // TODO trigger an event to Gradient containing a VodAddress and a new
-                // utility value. Used to update utility value and age in gradientSet.
-                switch (event.getResponse()) {
-                    case OK:
-                        if ((event.getUtility().isSeeder() && event.isToUtilitySet())
-                                || (event.getUtility().getPiece() < utility.getPiece() + utility.getPieceOffset()
-                                && event.getUtility().getPiece() > utility.getPiece() - utility.getPieceOffset())) {
-                            upperSet.remove(event.getVodSource());
-                            lowerSet.remove(event.getVodSource());
-                            logger.trace(compName + "received connectResponse from {}", event.getVodSource().getId());
-                            toBeRemoved = bitTorrentSet.add(event.getVodSource(),
-                                    event.getUtility(),
-                                    commWinSize, pipeSize, maxWindowSize,
-                                    event.getMtu());
-                            logger.trace(compName + "after connect from {} {} my utility "
-                                    + utility.getChunk() + " its utility " + event.getUtility().getChunk(),
-                                    event.getVodSource().getId(), event.getAvailablePieces());
-                            bitTorrentSet.updatePeerInfo(event.getVodSource(),
-                                    event.getUtility(),
-                                    event.getAvailableChunks(),
-                                    event.getAvailablePieces());
-                        } else if (event.getUtility().getChunk() >= utility.getChunk() + utility.getOffset()
-                                || (event.getUtility().isSeeder() && !event.isToUtilitySet())) {
-                            logger.trace(compName + "remove from sets {} handleConnectResponse",
-                                    event.getVodSource().getId());
-                            bitTorrentSet.remove(event.getVodSource());
-                            lowerSet.remove(event.getVodSource());
-                            toBeRemoved = upperSet.add(event.getVodSource(), event.getUtility(), utility,
-                                    commWinSize, pipeSize, maxWindowSize, event.getMtu());
-                        } else {
-                            logger.trace(compName + "received connectResponse2 from {}", event.getVodSource().getId());
-                            store.add(event.getVodSource(), event.getUtility(), false,
-                                    commWinSize, pipeSize, maxWindowSize, event.getMtu());
-                            triggerDisconnectRequest(event.getVodSource(), false);
-                        }
-                        break;
-                    case FULL:
-                        // we just ignore the nodeAddr, next time we will be more luky
-                        // see if there is optimisations that can be done
-                        break;
-                    case BAD_UTILITY:
-                        // we just update the node utility in our view and ignore
-                        // the nodeAddr, next time we will be more lucky
-                        logger.warn(compName + "received BAD_Utility response from {} my utility (" + utility.getPiece()
-                                + ";" + utility.getChunk() + ") its utility (" + event.getUtility().getPiece()
-                                + ";" + event.getUtility().getChunk() + ")", event.getVodSource().getId());
-                        VodDescriptor nodeSrc = store.getVodDescriptorFromVodAddress(event.getVodSource());
-                        if (nodeSrc != null) {
-                            nodeSrc.setUtility(event.getUtility());
-                        }
-                        break;
-                }
+                connectionMngr.processConnectResp(resp, downloadMngr.pipeSize);
+                downloadMngr.startDownload(time);
             }
-            for (VodAddress add : toBeRemoved) {
-                triggerDisconnectRequest(add, false);
-            }
-            startDownload();
         }
     };
 
-    private void msgReceived(VodAddress peer) {
-        if (suspected.containsKey(peer)) {
-            suspected.remove(peer);
-        }
-    }
-
-    private void responseTimedOut(VodAddress peer, boolean supress, boolean force) {
-        if (suspected == null) {
-            logger.warn(compName + "Suspected was null.");
-        }
-        if (force || suspected.containsKey(peer)) {
-
-            if (force || (suspected.get(peer) + VodConfig.SUSPECTED_DEAD_TIMEOUT_MS
-                    > System.currentTimeMillis())) {
-//                removeFromUploaders(peer);
-                logger.warn(compName + "Removing peer due to response timed out: " + peer.getId());
-                bitTorrentSet.remove(peer);
-                upperSet.remove(peer);
-                lowerSet.remove(peer);
-                if (supress) {
-                    store.suppress(peer);
-                }
-                if (self.getNat().getFilteringPolicy() == Nat.FilteringPolicy.PORT_DEPENDENT) {
-                    // send msg to NatTraverser to delete the port
-                }
-            }
-        } else {
-            suspected.put(peer, System.currentTimeMillis());
-        }
-    }
-    /**
-     * handle a connect timeout when a node is too slow to answer to a connect
-     * request
-     */
     Handler<ConnectMsg.RequestTimeout> handleConnectTimeout = new Handler<ConnectMsg.RequestTimeout>() {
         @Override
         public void handle(ConnectMsg.RequestTimeout event) {
             ongoingConnectRequests.remove(event.getVodAddress().getId());
-            logger.trace(compName + "connectimeout with {}", event.getVodAddress().getId());
-
-//            TimeoutId timeoutId = event.getTimeoutId();
-//
-//            if (outstandingConnectionRequests.containsKey(timeoutId)) {
-//                outstandingConnectionRequests.remove(timeoutId);
-//                if (event.getNbTry() < 3 && !seeder) {
-//                    logger.trace(compName + "connectimeout with {}", event.getVodDescriptor().getVodAddress().getId());
-//                    triggerConnectRequest(event.getVodDescriptor(),
-//                            (event.getNbTry() + 1) * connectionTimeout,
-//                            event.getNbTry() + 1,
-//                            event.isToUtilitySet());
-//                }
-//            }
+            logger.trace("{} connect timeout with {}", compName, event.getVodAddress().getId());
         }
     };
-    /**
-     * handle a disconnect request, disconnect and answer when it's done
-     */
+
     Handler<DisconnectMsg.Request> handleDisconnectRequest = new Handler<DisconnectMsg.Request>() {
         @Override
-        public void handle(DisconnectMsg.Request event) {
-            logger.debug(compName + "DisconnectMsg.Request from {}.", event.getSource().getId());
+        public void handle(DisconnectMsg.Request req) {
+            logger.debug("{} DisconnectMsg.Request from {}.", compName, req.getSource().getId());
             if (self == null) {
                 return;
             }
-            msgReceived(event.getVodSource());
+            msgReceived(req.getVodSource());
 
-//            removeFromUploaders(event.getGVodSource());
-            logger.trace(compName + "remove {} handleDisConnectRequest", event.getVodSource().getId());
-            bitTorrentSet.remove(event.getVodSource());
-            int ref = store.getRef(event.getVodSource());
-            upperSet.remove(event.getVodSource());
-            lowerSet.remove(event.getVodSource());
-            logger.trace(compName + "remove {} handleDisConnectRequest2", event.getVodSource().getId());
-            bitTorrentSet.remove(event.getVodSource());
-            logger.trace(compName + "removed {} from neighbourhood (handleDisconnectRequest)", event.getVodSource().getId());
-            store.suppress(event.getVodSource());
-            ref = 0;
-            logger.trace(compName + "trigger disconnectResponse");
-            delegator.doTrigger(new DisconnectMsg.Response(self.getAddress(), event.getVodSource(),
-                    event.getTimeoutId(), ref), network);
+            connectionMngr.processDisconnectReq(req);
 
-            trigger(new DisconnectNeighbour(event.getVodSource().getId()), natTraverserPort);
+            trigger(new DisconnectNeighbour(req.getVodSource().getId()), natTraverserPort);
         }
     };
-    /**
-     * handle the response to a disconnect request and finish to disconnect
-     */
+
     Handler<DisconnectMsg.Response> handleDisconnectResponse = new Handler<DisconnectMsg.Response>() {
         @Override
-        public void handle(DisconnectMsg.Response event) {
+        public void handle(DisconnectMsg.Response resp) {
 
-            logger.debug(compName + "handle disconnectResponse from {}", event.getVodSource().getId());
+            logger.debug("{} handle disconnectResponse from {}", compName, resp.getVodSource().getId());
             if (self == null) {
                 return;
             }
-            msgReceived(event.getVodSource());
+            msgReceived(resp.getVodSource());
 
-            if (delegator.doCancelRetry(event.getTimeoutId())) {
-                logger.trace(compName + "cancel timeOut {} disconnectResponse", event.getTimeoutId());
-
-                if (event.getRef() == 0 && store.getRef(event.getVodSource()) == 0) {
-//                    removeFromUploaders(event.getGVodSource());
-                    upperSet.remove(event.getVodSource());
-                    lowerSet.remove(event.getVodSource());
-                    logger.trace(compName + "remove {} handleDisConnectResponse", event.getVodSource().getId());
-                    bitTorrentSet.remove(event.getVodSource());
-                    logger.trace(compName + "remove {} from neighbourhood (handleDisconnectResponse)", event.getVodSource().getId());
-                    store.suppress(event.getVodSource());
-                }
+            if (delegator.doCancelRetry(resp.getTimeoutId())) {
+                logger.trace("{} Cancelled connectRequest timeout : {}", compName, resp.getTimeoutId());
+                connectionMngr.processDisconnectResp(resp);
             }
-
         }
     };
+
     Handler<DisconnectTimeout> handleDisconnectTimeout = new Handler<DisconnectTimeout>() {
         @Override
         public void handle(DisconnectTimeout event) {
             triggerDisconnectRequest(event.getDest(), true);
         }
     };
+
     /**
      * handle timeout when a node is to slow to answer to a disconnect request
      * finish to disconnect
      */
     Handler<DisconnectMsg.RequestTimeout> handleDisconnectReqTimeout = new Handler<DisconnectMsg.RequestTimeout>() {
         @Override
-        public void handle(DisconnectMsg.RequestTimeout event) {
-            logger.trace(compName + "disconnectTimeout");
+        public void handle(DisconnectMsg.RequestTimeout timeout) {
+            VodAddress peer = timeout.getPeer();
+            logger.debug("{} DisconnectReq Timeout peer: {}", compName, peer.getId());
 
-            if (delegator.doCancelRetry(event.getTimeoutId())) {
-                logger.trace(compName + "remove {} handleDisConnectTimeout", event.getPeer().getId());
-                logger.trace(compName + "supr {} from neighbourhood (handleDisconnectTimeout)", event.getPeer().getId());
-
-                responseTimedOut(event.getPeer(), true, true);
-                bitTorrentSet.remove(event.getPeer());
-                upperSet.remove(event.getPeer());
-                lowerSet.remove(event.getPeer());
-                store.suppress(event.getPeer());
+            if (delegator.doCancelRetry(timeout.getTimeoutId())) {
+                if (suspected.containsKey(peer)) {
+                    if (suspected.get(peer) + VodConfig.SUSPECTED_DEAD_TIMEOUT_MS > System.currentTimeMillis()) {
+                        logger.warn("{} Removing peer {} due to response timed out.", compName, peer.getId());
+                        connectionMngr.process(timeout);
+                        if (self.getNat().getFilteringPolicy() == Nat.FilteringPolicy.PORT_DEPENDENT) {
+                            // send msg to NatTraverser to delete the port
+                            //TODO Alex -> Jim
+                        }
+                    }
+                } else {
+                    suspected.put(timeout.getPeer(), System.currentTimeMillis());
+                }
             }
-
         }
     };
+
+    private void rebootstrap() {
+        if (rebootstrap) {
+            return;
+        }
+        logger.info("{} rebootstrap", compName);
+        int videoId = ActiveTorrents.calculateVideoId(downloadMngr.videoName);
+        UtilityVod utility = (UtilityVod) self.getUtility();
+        delegator.doTrigger(new Rebootstrap(self.getId(), videoId, utility), vod);
+        rebootstrap = true;
+    }
+
+    /**
+     * Handle a rebootstrap response to rejoin a GVod network using a set of
+     * introducer nodes provided in the Join event.
+     */
+    Handler<RebootstrapResponse> handleRebootstrapResponse = new Handler<RebootstrapResponse>() {
+        @Override
+        public void handle(RebootstrapResponse resp) {
+            List<VodDescriptor> insiders = resp.getVodInsiders();
+            rebootstrap = false;
+            logger.debug("{} handle rebootstrap response {}", compName, insiders.size());
+            if (!downloadMngr.seeder) {
+                connectionMngr.processRebootstrap(resp);
+            }
+        }
+    };
+
     /**
      * handle a quit request, send a leave message to the neighbor to inform
      * them that the node quit the network
@@ -1240,15 +637,9 @@ public final class Vod extends MsgRetryComponent {
     Handler<Quit> handleQuit = new Handler<Quit>() {
         @Override
         public void handle(Quit event) {
-            logger.trace(compName + "quit");
-            if (store != null && store.getNeighbours() != null) {
-                for (VodAddress destination : store.getNeighbours().keySet()) {
-                    logger.debug(compName + "trigger leaveMessage");
-                    delegator.doTrigger(new LeaveMsg(self.getAddress(), destination), network);
-                }
-            }
-            delegator.doTrigger(new QuitCompleted(event.getOverlayId(), torrentFileAddress), vod);
-
+            logger.info("{} quit", compName);
+            connectionMngr.process(event);
+            delegator.doTrigger(new QuitCompleted(event.getOverlayId(), downloadMngr.torrentFileAddress), vod);
         }
     };
     /**
@@ -1257,16 +648,89 @@ public final class Vod extends MsgRetryComponent {
     Handler<LeaveMsg> handleLeave = new Handler<LeaveMsg>() {
         @Override
         public void handle(LeaveMsg event) {
-
-            logger.trace(compName + "remove {} handleleave", event.getVodSource().getId());
-            bitTorrentSet.remove(event.getVodSource());
-            upperSet.remove(event.getVodSource());
-            lowerSet.remove(event.getVodSource());
-            logger.debug(compName + "supr {} from neighbourhood (handleLeave)", event.getVodSource().getId());
-            store.suppress(event.getVodSource());
-
+            logger.debug("{} remove {} is leaving", compName, event.getVodSource().getId());
+            connectionMngr.process(event);
         }
     };
+
+    /**
+     * handle a message from gvodPeer asking to change the utility
+     */
+    Handler<ChangeUtility> handleChangeUtility = new Handler<ChangeUtility>() {
+        @Override
+        public void handle(ChangeUtility event) {
+            logger.info("{} changeUtilityPosition seekPos/readPos {}/{} ",
+                    new Object[]{compName, event.getUtility(), event.getReadPos()});
+
+            int seekPos = event.getReadPos();
+            int piecePos = seekPos / (BitField.NUM_SUBPIECES_PER_PIECE * BitField.SUBPIECE_SIZE);
+            int offsetWithinPiece = seekPos % (BitField.NUM_SUBPIECES_PER_PIECE * BitField.SUBPIECE_SIZE);
+            int chunkPos = piecePos / BitField.NUM_PIECES_PER_CHUNK;
+            playerMngr.nextPieceToSend.set(piecePos);
+            if (downloadMngr.changeUtility(time, chunkPos, piecePos)) {
+                Sender oldSender = sender;
+                sender = new Sender(comp, event.getResponseBody(), piecePos, offsetWithinPiece);
+                sender.start();
+                if (oldSender != null) {
+                    oldSender.interrupt();
+                }
+            }
+        }
+    };
+
+    private void triggerConnectRequest(VodDescriptor node, boolean toUtilitySet) {
+        UtilityVod utility = (UtilityVod) self.getUtility();
+        if (node != null) {
+            if (node.getVodAddress().getId() == self.getAddress().getId()) {
+                logger.warn("{} DO NOT CONNECT TO SELF", compName);
+                return;
+            }
+            if (ongoingConnectRequests.containsKey(node.getVodAddress().getId())) {
+                return;
+            }
+
+            UtilityVod u = (UtilityVod) node.getUtility();
+            logger.info("{} trigger ConnectRequest to {}", compName, node.getVodAddress().getId());
+
+            ScheduleRetryTimeout st = new ScheduleRetryTimeout(2000, 3, 1.5d);
+            ConnectMsg.Request request = new ConnectMsg.Request(
+                    self.getAddress(), node.getVodAddress(), u, toUtilitySet, mtu);
+            ConnectMsg.RequestTimeout retryRequest = new ConnectMsg.RequestTimeout(st, request,
+                    toUtilitySet);
+            delegator.doRetry(retryRequest);
+            ongoingConnectRequests.put(node.getVodAddress().getId(), System.currentTimeMillis());
+        }
+    }
+
+    private void triggerDisconnectRequest(VodAddress dest, boolean noDelay) {
+
+        logger.info("{} trigger DisconnectRequest to {}", compName, dest.getId());
+        if (noDelay) {
+            DisconnectMsg.Request dr = new DisconnectMsg.Request(self.getAddress(), dest);
+            ScheduleRetryTimeout st = new ScheduleRetryTimeout(config.getConnectionTimeout(), 1);
+            DisconnectMsg.RequestTimeout drt = new DisconnectMsg.RequestTimeout(st, dr);
+            delegator.doRetry(drt);
+            trigger(new DisconnectNeighbour(dest.getId()), natTraverserPort);
+        } else {
+            ScheduleTimeout st = new ScheduleTimeout(config.getConnectionTimeout());
+            st.setTimeoutEvent(new DisconnectTimeout(st, dest));
+            delegator.doTrigger(st, timer);
+        }
+    }
+
+    private void cancelPeriodicTimer(TimeoutId timerId) {
+        if (timerId != null) {
+            CancelPeriodicTimeout cPT = new CancelPeriodicTimeout(timerId);
+            delegator.doTrigger(cPT, timer);
+        }
+    }
+
+    private void msgReceived(VodAddress peer) {
+        if (suspected.containsKey(peer)) {
+            suspected.remove(peer);
+        }
+    }
+
     /**
      * handle dataoffer message containing the information on the data that the
      * sending node can share
@@ -1275,27 +739,12 @@ public final class Vod extends MsgRetryComponent {
         @Override
         public void handle(DataOfferMsg event) {
             UtilityVod utility = (UtilityVod) self.getUtility();
-            logger.debug(compName + "Dataoffer from " + event.getVodSource().getId() + " my utility :" + utility.getChunk()
-                    + " its utility : " + event.getUtility().getChunk());
+            logger.debug("{} DataOffer received from {}", compName, event.getVodSource().getId());
             if (self == null) {
                 return;
             }
             msgReceived(event.getVodSource());
-
-            if (!bitTorrentSet.contains(event.getVodSource())) {
-                logger.trace(compName + "Dataoffer from node not in my utility set");
-                upperSet.remove(event.getVodSource());
-                lowerSet.remove(event.getVodSource());
-                triggerDisconnectRequest(event.getVodSource(), false);
-                return;
-            }
-            VodDescriptor node = bitTorrentSet.updatePeerInfo(event.getVodSource(),
-                    event.getUtility(), event.getAvailableChunks(),
-                    event.getAvailablePieces());
-            if (node != null) {
-                triggerDisconnectRequest(node.getVodAddress(), false);
-            }
-
+            connectionMngr.process(event);
         }
     };
     /**
@@ -1305,120 +754,50 @@ public final class Vod extends MsgRetryComponent {
     Handler<InitiateDataOffer> handleInitiateDataOffer = new Handler<InitiateDataOffer>() {
         @Override
         public void handle(InitiateDataOffer event) {
-
-            logger.trace(compName + "handle initiate dataoffer");
-            List<VodAddress> toDisconnect = bitTorrentSet.cleanup(VodConfig.DATA_OFFER_PERIOD);
-            for (VodAddress add : toDisconnect) {
-                triggerDisconnectRequest(add, false);
-                // TODO what happens if the node doesn't receive the DisconnectRequest?
-                // Our neighbour still thinks we're a neighbour, but we dont think they are?
-            }
-
-            triggerDataOffer();
+            logger.debug("{} initiating DataOffer at {}", compName, self.getId());
+            List<VodAddress> toDisconnect = connectionMngr.bitTorrentSet.cleanup(VodConfig.DATA_OFFER_PERIOD);
+            connectionMngr.process(event, downloadMngr.storage.getBitField());
         }
     };
 
-    private void triggerDataOffer() {
-        DataOfferMsg dataOffer;
-        UtilityVod utility = (UtilityVod) self.getUtility();
-        for (VodDescriptor desc : bitTorrentSet.getAll()) {
-            desc.incrementAndGetAge();
-            if (utility.isSeeder()) { // seed
-                dataOffer = new DataOfferMsg(self.getAddress(), desc.getVodAddress(), utility,
-                        storage.getBitField().getChunkfield(), null);
-            } else {
-                dataOffer = new DataOfferMsg(self.getAddress(), desc.getVodAddress(), utility,
-                        storage.getBitField().getChunkfield(),
-                        storage.getBitField().getAvailablePieces(utility));
-            }
-            logger.trace(compName + "message utility {}, my utility {}", dataOffer.getUtility().getChunk(),
-                    utility.getChunk());
-            delegator.doTrigger(dataOffer, network);
-        }
-    }
     /**
      * Handle a request to send a subpiece send the subpiece if all the
      * conditions to do it are fulfilled
      */
     Handler<DataMsg.Request> handleDataMsgRequest = new Handler<DataMsg.Request>() {
         @Override
-        public void handle(DataMsg.Request event) {
-            logger.trace(compName + videoName + ": DataMsg.Request from " + event.getVodSource().getId());
-            msgReceived(event.getVodSource());
+        public void handle(DataMsg.Request req) {
+            VodAddress peer = req.getVodSource();
+            int piece = req.getPiece();
+            int subpiece = req.getSubpieceOffset();
+            logger.debug("{} Request from {}, Video {}, Data ({},{})",
+                    new Object[]{compName, peer.getId(), downloadMngr.videoName, piece, subpiece});
+            msgReceived(req.getVodSource());
 
-            try {
-                VodAddress peer = event.getVodSource();
-                int piece = event.getPiece();
-                TimeoutId requestId = event.getTimeoutId();
-                TimeoutId ackId = event.getAckId();
-                if (ackId.getId() == 0) {
-                    ackId = null;
-                }
-
-                logger.debug(compName + "Got REQUEST({}, {}) from {}", new Object[]{piece,
-                    event.getSubpieceOffset(), peer.getId()});
-                /*
-                 * if free rider just ignore the message
-                 */
-                if (freeRider) {
-                    logger.debug(compName + "Freerider: ignoring data request");
-                    return;
-                }
-                byte[] subpiece = storage.getSubpiece(event.getSubpieceOffset());
-                /*
-                 * answer only if the node is a neighbor, the pipe is not full and we have the piece
-                 */
-                if (!(bitTorrentSet.contains(event.getVodSource()) || lowerSet.contains(event.getVodSource()))) {
-                    logger.warn(compName + "Node requesting piece is not a neighbour {}. Piece Refused.",
-                            event.getVodSource().getId());
-                    return;
-                }
-                CommunicationWindow comWin = store.getVodDescriptorFromVodAddress(peer).getWindow();
-                if (updateCommsWindow(comWin, ackId, event.getDelay()) == false) {
-                    if (ackId == null) {
-                        logger.warn(compName + "ACK null to update comWin");
-                    } else {
-                        logger.info(compName + "Missing ACK {} to update comWin", ackId.toString());
-                    }
-                }
-
-                if (subpiece != null) {
-                    ScheduleTimeout st = new ScheduleTimeout(ackTimeout);
-                    st.setTimeoutEvent(new DataMsg.AckTimeout(st, peer, self.getOverlayId()));
-                    TimeoutId newAckId = st.getTimeoutEvent().getTimeoutId();
-                    DataMsg.Response pieceMessage
-                            = new DataMsg.Response(self.getAddress(),
-                                    peer, requestId, newAckId,
-                                    subpiece,
-                                    event.getSubpieceOffset(), piece,
-                                    comWin.getSize(), System.currentTimeMillis());
-                    if (comWin.addMessage(newAckId, pieceMessage.getSize())) {
-                        logger.debug(compName + "DataExchangeResponse for piece " + piece + "("
-                                + event.getSubpieceOffset() + ")");
-                        delegator.doTrigger(pieceMessage, network);
-                        outstandingAck.put(newAckId, pieceMessage.getSize());
-                        delegator.doTrigger(st, timer);
-                    } else {
-                        logger.info(compName + "DataExchangeResponse SATURATED");
-                        delegator.doTrigger(new DataMsg.Saturated(self.getAddress(), peer, piece,
-                                comWin.getSize()), network);
-                    }
-                } else {
-                    logger.info(compName + "DataExchangeResponse FORWARDED");
-                    triggerForwardDataRequest(event);
-                }
-            } catch (Exception e) {
-                logger.warn(compName + e.getMessage()
-                        + ": impossible to access the requested subpiece :  {} ",
-                        event.getPiece());
-
+            /*
+             * if free rider just ignore the message
+             */
+            if (downloadMngr.freeRider) {
+                logger.debug("{} Freerider: ignoring data request", compName);
+                return;
             }
-            logger.trace(compName + "got request end");
+            byte[] subpieceVal = null;
+            try {
+                subpieceVal = downloadMngr.getSubpiece(subpiece);
+            } catch (IOException ex) {
+                logger.warn("{} impossible to access the requested Data ({},{})",
+                        new Object[]{compName, piece, subpiece});
+                return;
+            }
+            if (subpieceVal == null) {
+                logger.info("{} DataExchangeResponse FORWARDED", compName);
+                triggerForwardDataRequest(req);
+            }
+            connectionMngr.process(req, ackTimeout, subpieceVal);
         }
     };
-    /**
-     * handle the response to a piece request
-     */
+
+    //re-refactor Alex here
     Handler<DataMsg.Response> handleDataMsgResponse = new Handler<DataMsg.Response>() {
         @Override
         public void handle(DataMsg.Response event) {
@@ -1445,7 +824,7 @@ public final class Vod extends MsgRetryComponent {
                 updateRtts(srcId, rtt2);
 
                 VodAddress peer = event.getVodSource();
-                VodDescriptor peerInfo = store.getVodDescriptorFromVodAddress(peer);
+                VodDescriptor peerInfo = connectionMngr.store.getVodDescriptorFromVodAddress(peer);
                 if (delegator.doCancelRetry(event.getTimeoutId())) {
                     logger.debug(compName + "Timer cancelled for({}, {}) from {}", new Object[]{piece,
                         subpieceNb, peer.getId()});
@@ -1473,7 +852,7 @@ public final class Vod extends MsgRetryComponent {
                 /*
                  * if the piece was not requested we ignore the message
                  */
-                if (!partialPieces.containsKey(piece)) {
+                if (!downloadMngr.partialPieces.containsKey(piece)) {
                     logger.debug(compName + "This piece wasn't requested: {}", piece);
                     return;
                 }
@@ -1482,7 +861,7 @@ public final class Vod extends MsgRetryComponent {
                     subpieceNb, peer.getId()});
 
                 // mark that we downloaded a block
-                PieceInTransit transit = partialPieces.get(piece);
+                PieceInTransit transit = downloadMngr.partialPieces.get(piece);
 
                 if (transit == null) {
                     logger.warn(compName + "Piece in transit was null");
@@ -1491,12 +870,12 @@ public final class Vod extends MsgRetryComponent {
 
                 int subpieceIndex = event.getSubpieceOffset();
                 boolean completedPiece = transit.subpieceReceived(subpieceIndex);
-                boolean flag = storage.putSubpiece(event.getSubpieceOffset(), event.getSubpiece());
+                boolean flag = downloadMngr.storage.putSubpiece(event.getSubpieceOffset(), event.getSubpiece());
 
                 peerInfo.getRequestPipeline().remove(new Block(piece, subpieceIndex, 0));
 
                 if (flag) {
-                    downloadStats.downloadedFrom(peer, 1);
+                    downloadMngr.downloadStats.downloadedFrom(peer, 1);
                 }
                 if (downloadedFrom.containsKey(event.getVodSource())) {
                     long val = downloadedFrom.get(event.getVodSource()) + 1;
@@ -1505,17 +884,17 @@ public final class Vod extends MsgRetryComponent {
                     downloadedFrom.put(event.getVodSource(), (long) 1);
                 }
                 if (completedPiece) {
-                    pieceCompleted(piece, peer);
-                    partialPieces.remove(piece);
-                    if (buffering.get()
-                            && (storage.getBitField().getNextUncompletedPiece() >= pieceToRead.get() + bufferingWindow
-                            || storage.complete()
-                            || storage.getBitField().getNextUncompletedPiece() >= storage.getBitField().numberPieces())) {
-                        restartToRead();
+                    downloadMngr.pieceCompleted(piece, peer, time);
+                    downloadMngr.partialPieces.remove(piece);
+                    if (playerMngr.buffering.get()
+                            && (downloadMngr.storage.getBitField().getNextUncompletedPiece() >= downloadMngr.pieceToRead.get() + playerMngr.bufferingWindow
+                            || downloadMngr.storage.complete()
+                            || downloadMngr.storage.getBitField().getNextUncompletedPiece() >= downloadMngr.storage.getBitField().numberPieces())) {
+                        downloadMngr.restartToRead(time);
                     } else {
-                        logger.info(compName + "State: " + buffering.get() + " Buffering: {} > {}",
-                                storage.getBitField().getNextUncompletedPiece(),
-                                pieceToRead.get() + bufferingWindow);
+                        logger.info(compName + "State: " + playerMngr.buffering.get() + " Buffering: {} > {}",
+                                downloadMngr.storage.getBitField().getNextUncompletedPiece(),
+                                downloadMngr.pieceToRead.get() + playerMngr.bufferingWindow);
                     }
                 }
 
@@ -1533,14 +912,13 @@ public final class Vod extends MsgRetryComponent {
                             || lastRequestedBlock.getPieceIndex() == piece) {
                         logger.trace(compName + "Requesting new piece");
                         // start downloading a new piece
-                        startDownloadingPieceFrom(peer,
+                        downloadMngr.startDownloadingPieceFrom(peer,
                                 peerInfo.getPipeSize() - peerInfo.getRequestPipeline().size(),
-                                ackId,
-                                rtt);
+                                ackId, rtt, time);
                     } else {
                         // continue downloading a block from the last requested piece
                         int lastRequestedPiece = lastRequestedBlock.getPieceIndex();
-                        PieceInTransit latestTransit = partialPieces.get(lastRequestedPiece);
+                        PieceInTransit latestTransit = downloadMngr.partialPieces.get(lastRequestedPiece);
 
                         int blockToRequest = -1;
                         if (latestTransit != null) {
@@ -1552,9 +930,9 @@ public final class Vod extends MsgRetryComponent {
                         } else {
                             // all blocks were requested from the last requested
                             // piece. we request a new piece
-                            startDownloadingPieceFrom(peer,
+                            downloadMngr.startDownloadingPieceFrom(peer,
                                     peerInfo.getPipeSize() - peerInfo.getRequestPipeline().size(),
-                                    ackId, rtt);
+                                    ackId, rtt, time);
                         }
                     }
                 } else {
@@ -1584,7 +962,7 @@ public final class Vod extends MsgRetryComponent {
                 logger.warn(compName + "DataRequestTimeout for SUBPIECE({}, {}) from {}",
                         new Object[]{piece, subpiece, peer.getId()});
                 // remove the subpiece request from the pipeline
-                VodDescriptor peerInfo = store.getVodDescriptorFromVodAddress(peer);
+                VodDescriptor peerInfo = connectionMngr.store.getVodDescriptorFromVodAddress(peer);
                 if (peerInfo == null) {
                     logger.warn(compName + "VodNodeDescriptor was null for {}. Probably removed.", peer.getId());
                 } else {
@@ -1596,7 +974,7 @@ public final class Vod extends MsgRetryComponent {
                     }
 
                     // re-request the subpiece
-                    PieceInTransit transit = partialPieces.get(piece);
+                    PieceInTransit transit = downloadMngr.partialPieces.get(piece);
                     if (transit != null) {
                         transit.subpieceTimedOut(subpiece);
                     } else {
@@ -1607,22 +985,6 @@ public final class Vod extends MsgRetryComponent {
             }
         }
     };
-
-    private boolean updateCommsWindow(CommunicationWindow comWin, TimeoutId ackId, long delay) {
-        assert (comWin != null);
-
-        if (ackId == null) {
-            return false;
-        }
-        if (outstandingAck.containsKey(ackId)) {
-            logger.debug(compName + "Received ACK {}. Updating CommWindow with delay {} ms.", ackId, delay);
-            Integer msgSize = outstandingAck.remove(ackId);
-            comWin.update(delay);
-            comWin.removeMessage(ackId, msgSize);
-            return true;
-        }
-        return false;
-    }
 
     private void updateRtts(int id, long rtt) {
         // SRTT(i+1) = α * SRTT(i) + ( 1-α ) * S(i)
@@ -1653,9 +1015,9 @@ public final class Vod extends MsgRetryComponent {
      */
     private void triggerForwardDataRequest(DataMsg.Request event) {
         UtilityVod utility = (UtilityVod) self.getUtility();
-        VodDescriptor node = bitTorrentSet.getStats().getRandomNodeWithPiece(event.getPiece(), null);
+        VodDescriptor node = connectionMngr.bitTorrentSet.getStats().getRandomNodeWithPiece(event.getPiece(), null);
         if (node == null) {
-            node = upperSet.getRandomNode();
+            node = connectionMngr.upperSet.getRandomNode();
         }
 
         if (node != null) {
@@ -1674,8 +1036,8 @@ public final class Vod extends MsgRetryComponent {
             delegator.doRetry(request, self.getOverlayId());
         } else {
             DataMsg.PieceNotAvailable response = new DataMsg.PieceNotAvailable(self.getAddress(), event.getVodSource(),
-                    storage.getBitField().getChunkfield(), utility,
-                    event.getPiece(), storage.getBitField().getAvailablePieces(utility));
+                    downloadMngr.storage.getBitField().getChunkfield(), utility,
+                    event.getPiece(), downloadMngr.storage.getBitField().getAvailablePieces(utility));
             delegator.doTrigger(response, network);
         }
     }
@@ -1689,8 +1051,8 @@ public final class Vod extends MsgRetryComponent {
     private void forwardResponse(DataMsg.Response event) throws IOException {
 
         for (VodAddress peer : forwarded.get(event.getSubpieceOffset())) {
-            if (store.contains(peer)) {
-                CommunicationWindow comWin = store.getVodDescriptorFromVodAddress(peer).getWindow();
+            if (connectionMngr.store.contains(peer)) {
+                CommunicationWindow comWin = connectionMngr.store.getVodDescriptorFromVodAddress(peer).getWindow();
                 ScheduleTimeout st = new ScheduleTimeout(ackTimeout);
                 st.setTimeoutEvent(new DataMsg.AckTimeout(st, peer, self.getOverlayId()));
                 TimeoutId ackId = st.getTimeoutEvent().getTimeoutId();
@@ -1700,7 +1062,7 @@ public final class Vod extends MsgRetryComponent {
                             event.getSubpieceOffset(), event.getPiece(), comWin.getSize(),
                             System.currentTimeMillis());
                     delegator.doTrigger(response, network);
-                    outstandingAck.put(ackId, response.getSize());
+                    connectionMngr.outstandingAck.put(ackId, response.getSize());
                     delegator.doTrigger(st, timer);
                 } else {
                     delegator.doTrigger(new DataMsg.Saturated(self.getAddress(), peer, event.getPiece(),
@@ -1709,9 +1071,9 @@ public final class Vod extends MsgRetryComponent {
             }
         }
 //        if (storage != null) {
-        boolean flag = storage.putSubpiece(event.getSubpieceOffset(), event.getSubpiece());
+        boolean flag = downloadMngr.storage.putSubpiece(event.getSubpieceOffset(), event.getSubpiece());
         if (flag) {
-            downloadStats.downloadedFrom(event.getVodSource(), 1);
+            downloadMngr.downloadStats.downloadedFrom(event.getVodSource(), 1);
         }
 //        }
         forwarded.remove(event.getSubpieceOffset());
@@ -1725,12 +1087,12 @@ public final class Vod extends MsgRetryComponent {
      */
     private void forwardResponse(DataMsg.Saturated event) {
         for (VodAddress peer : forwarded.get(event.getSubpiece())) {
-            if (store.contains(peer)) {
+            if (connectionMngr.store.contains(peer)) {
                 delegator.doTrigger(new DataMsg.Saturated(self.getAddress(), peer, event.getSubpiece() / BitField.NUM_PIECES_PER_CHUNK,
-                        store.getVodDescriptorFromVodAddress(peer).getWindow().getSize()), network);
+                        connectionMngr.store.getVodDescriptorFromVodAddress(peer).getWindow().getSize()), network);
             } else {
                 delegator.doTrigger(new DataMsg.Saturated(self.getAddress(), peer, event.getSubpiece() / BitField.NUM_PIECES_PER_CHUNK,
-                        commWinSize), network);
+                        connectionMngr.commWinSize), network);
             }
         }
         forwarded.remove(event.getSubpiece());
@@ -1748,10 +1110,10 @@ public final class Vod extends MsgRetryComponent {
             }
             msgReceived(event.getVodSource());
 
-            CommunicationWindow comWin = store.getVodDescriptorFromVodAddress(event.getVodSource()).getWindow();
-            updateCommsWindow(comWin, event.getAckId(), event.getDelay());
+            CommunicationWindow comWin = connectionMngr.store.getVodDescriptorFromVodAddress(event.getVodSource()).getWindow();
+            connectionMngr.updateCommsWindow(comWin, event.getAckId(), event.getDelay());
 
-            VodDescriptor peer = store.getVodDescriptorFromVodAddress(event.getVodSource());
+            VodDescriptor peer = connectionMngr.store.getVodDescriptorFromVodAddress(event.getVodSource());
             if (peer == null) {
                 logger.warn(compName + "Got Ack from node who isn't a neighbour: " + event.getVodSource().getId());
             } else {
@@ -1777,12 +1139,12 @@ public final class Vod extends MsgRetryComponent {
     Handler<DataMsg.AckTimeout> handleAckTimeout = new Handler<DataMsg.AckTimeout>() {
         @Override
         public void handle(AckTimeout event) {
-            if (outstandingAck.containsKey(event.getTimeoutId())) {
+            if (connectionMngr.outstandingAck.containsKey(event.getTimeoutId())) {
                 logger.debug(compName + "Ack timed out {} to {}", event.getTimeoutId(),
                         event.getPeer().getPeerAddress().getId());
-                Integer msgSize = outstandingAck.remove(event.getTimeoutId());
-                if (store.contains(event.getPeer())) {
-                    CommunicationWindow comWin = store.getVodDescriptorFromVodAddress(event.getPeer()).getWindow();
+                Integer msgSize = connectionMngr.outstandingAck.remove(event.getTimeoutId());
+                if (connectionMngr.store.contains(event.getPeer())) {
+                    CommunicationWindow comWin = connectionMngr.store.getVodDescriptorFromVodAddress(event.getPeer()).getWindow();
                     comWin.timedout(event.getTimeoutId(), msgSize);
                 }
             }
@@ -1805,12 +1167,12 @@ public final class Vod extends MsgRetryComponent {
             if (forwarded.containsKey(event.getSubpiece())) {
                 forwardResponse(event);
             }
-            if (!partialPieces.containsKey(event.getSubpiece() / BitField.NUM_PIECES_PER_CHUNK)) {
+            if (!downloadMngr.partialPieces.containsKey(event.getSubpiece() / BitField.NUM_PIECES_PER_CHUNK)) {
                 return;
             }
-            partialPieces.remove(event.getSubpiece() / BitField.NUM_PIECES_PER_CHUNK);
-            if (store.contains(event.getVodSource())) {
-                store.getVodDescriptorFromVodAddress(event.getVodSource()).setPipeSize(
+            downloadMngr.partialPieces.remove(event.getSubpiece() / BitField.NUM_PIECES_PER_CHUNK);
+            if (connectionMngr.store.contains(event.getVodSource())) {
+                connectionMngr.store.getVodDescriptorFromVodAddress(event.getVodSource()).setPipeSize(
                         event.getComWinSize() / VodConfig.LB_MAX_SEGMENT_SIZE);
             }
         }
@@ -1828,10 +1190,10 @@ public final class Vod extends MsgRetryComponent {
             }
             msgReceived(event.getVodSource());
 
-            if (store != null && store.contains(event.getTarget())) {
+            if (connectionMngr.store != null && connectionMngr.store.contains(event.getTarget())) {
                 delegator.doTrigger(new UploadingRateMsg.Response(self.getAddress(), event.getVodSource(),
                         event.getTimeoutId(), event.getTarget(),
-                        downloadStats.getDownloaded(event.getTarget())),
+                        downloadMngr.downloadStats.getDownloaded(event.getTarget())),
                         network);
             } else {
                 delegator.doTrigger(new UploadingRateMsg.Response(self.getAddress(), event.getVodSource(),
@@ -1854,8 +1216,8 @@ public final class Vod extends MsgRetryComponent {
 
             if (delegator.doCancelRetry(event.getTimeoutId())) {
                 delegator.doTrigger(new CancelTimeout(event.getTimeoutId()), timer);
-                bitTorrentSet.incrementUploadRate(event.getTarget(), event.getRate());
-                lowerSet.incrementUploadRate(event.getTarget(), event.getRate());
+                connectionMngr.bitTorrentSet.incrementUploadRate(event.getTarget(), event.getRate());
+                connectionMngr.lowerSet.incrementUploadRate(event.getTarget(), event.getRate());
             }
         }
     };
@@ -1870,165 +1232,6 @@ public final class Vod extends MsgRetryComponent {
     };
 
     /**
-     * check if a downloaded piece correspond to its hash if yes update the
-     * utility if not unmark the subpiece as downloaded
-     *
-     * @param piece
-     * @param peer
-     */
-    private void pieceCompleted(int piece, VodAddress peer) {
-        UtilityVod utility = (UtilityVod) self.getUtility();
-        // downloaded a complete piece
-        try {
-            if (!simulation) {
-                if (!storage.checkPiece(piece)) {
-                    for (int i = 0; i < storage.getMetaInfo().getPieceNbSubPieces(piece); i++) {
-                        storage.removeSubpiece(piece * BitField.NUM_SUBPIECES_PER_PIECE + i);
-                        downloadStats.removeDownloaded(peer, 1);
-                    }
-                    return;
-                }
-                ActiveTorrents.updatePercentage(videoName, storage.percent());
-            }
-            storage.getBitField().setPiece(piece);
-            logger.debug(compName + "completed piece : {} . Total pieces downloaded {}", piece,
-                    totalNumPiecesDownloaded++);
-            partialPieces.remove(piece);
-            bitTorrentSet.getStats().removePieceFromStats(piece);
-
-            // TODO: JIM - is this correct? I want the next uncomplete piece - not the first uncompleted piece!!
-            utility.setPiece(storage.getBitField().getNextUncompletedPiece());
-
-            if (buffering.get() && utility.getPiece() > pieceToRead.get() + bufferingWindow) {
-                restartToRead();
-            }
-            if (storage.getBitField().hasChunk(piece / BitField.NUM_PIECES_PER_CHUNK)) {
-                int holdUtility = utility.getChunk();
-                utility.setChunkOnly(storage.getBitField().getNextUncompletedChunk());
-                if (utility.getPiece() < utility.getChunk() * BitField.NUM_PIECES_PER_CHUNK) {
-                    logger.error(compName + "##### bad piece Utility value : ({};{}) "
-                            + storage.getBitField().getTotal(),
-                            utility.getChunk(), utility.getPiece());
-                    logger.error(compName + "##### " + storage.getBitField().getChunkHumanReadable());
-                }
-
-//                delegator.doTrigger(new ChangeBootstrapUtility(utility,
-//                        "GVod", self), vod);
-                bitTorrentSet.getStats().changeUtility(holdUtility,
-                        utility, storage.getBitField().numberPieces(),
-                        storage.getBitField());
-                informUtilityChange();
-            }
-            if (count >= infUtilFrec) {
-                logger.info(compName + storage.percent() + "%");
-                informUtilityChange();
-                count = 0;
-            } else {
-                count++;
-            }
-        } catch (Exception e) {
-            logger.error(compName + "problem accessing storage");
-        }
-
-        self.updateUtility(utility);
-    }
-
-    /**
-     * update the sets after a change in the utility and inform the neighbors
-     * that need to be informed
-     */
-    private void informUtilityChange() {
-        UtilityVod utility = (UtilityVod) self.getUtility();
-        /* we have to do that on the upperSet because when the utility
-         * increase we can have some node that have to be in the utilitySet
-         * and not in the upperSet that will stay in the upperSet
-         * we don't have to do it for the utilitySet because the correction
-         * will be done at the next update of the sets
-         */
-        List<VodDescriptor> noMoreInUpperSet;
-        noMoreInUpperSet = upperSet.changeUtility(utility);
-        List<VodDescriptor> addToUtilitySet;
-        if (utility.getChunk() >= 0) {
-            List<VodDescriptor> temp = new ArrayList<VodDescriptor>();
-            for (VodDescriptor node : noMoreInUpperSet) {
-                UtilityVod u = (UtilityVod) node.getUtility();
-                if (u.getPiece() < utility.getPiece() + utility.getPieceOffset()
-                        && u.getPiece() > utility.getPiece() - utility.getPieceOffset()) {
-                    temp.add(node);
-                }
-
-            }
-            addToUtilitySet = bitTorrentSet.updateAll(temp, utility);
-            if (!seeder) {
-                for (VodDescriptor node : addToUtilitySet) {
-                    triggerConnectRequest(node, true);
-                }
-            }
-
-            logger.info(compName + "Utility changed, removing " + addToUtilitySet.size() + " from upper set");
-            noMoreInUpperSet.removeAll(addToUtilitySet);
-        }
-        for (VodDescriptor node : noMoreInUpperSet) {
-            triggerDisconnectRequest(node.getVodAddress(), false);
-        }
-        /* force the verify of the below set, else the nodes take
-         * time to know that the node of their upperSet changed their
-         * utility
-         */
-
-//        for (VodDescriptor node : lowerSet.getAll()) {
-//            triggerRefRequest(node);
-//        }
-    }
-
-    /**
-     * check if the conditions have been fulfilled to restart reading after
-     * having buffered .
-     */
-    private void restartToRead() {
-        UtilityVod utility = (UtilityVod) self.getUtility();
-        if (buffering.get()) { // && read) {
-            if (storage.getBitField().getNextUncompletedPiece()
-                    >= storage.getBitField().numberPieces()) { // at the end of movie
-                buffering.set(false);
-                logger.info(compName + "2 starting reading after {}",
-                        durationToString(System.currentTimeMillis() - stoppedReadingAtTime));
-                bufferingTime += System.currentTimeMillis() - stoppedReadingAtTime;
-                if (startJumpForward != 0) {
-                    totalJumpForward += (System.currentTimeMillis() - startJumpForward);
-                    startJumpForward = 0;
-                }
-            } else {
-//                if (time - 10 - ((time - 10) % 10) >= 0) {
-                if (time - 1 - ((time - 1) % 10) >= 0) { // true the whole time, time > 0
-//                    int timeOffset = time - 10 - ((time - 10) % 10);
-                    int timeOffset = time - 1 - ((time - 1) % 10);
-                    int left = rest.get(timeOffset);
-                    float utilityDelta = (left - storage.needed())
-                            / BitField.NUM_SUBPIECES_PER_PIECE;
-                    float lecRest = (storage.getBitField().numberPieces()
-                            - pieceToRead.get()) * readingPeriod;
-                    float downRest = (storage.getBitField().numberPieces()
-                            - utility.getPiece())
-                            * (10 + ((time - 10) % 10)) / utilityDelta * 1000;
-                    if (lecRest > downRest + (overhead * downRest / 100)) {
-                        buffering.set(false);
-                        logger.info(compName + "1 starting reading after {}",
-                                durationToString(System.currentTimeMillis() - stoppedReadingAtTime));
-                        bufferingTime += System.currentTimeMillis() - stoppedReadingAtTime;
-                        if (startJumpForward != 0) {
-                            totalJumpForward += (System.currentTimeMillis() - startJumpForward);
-                            startJumpForward = 0;
-                        }
-                    }
-                } else {
-//                    logger.info(compName + "Buffering: {} < 0", time - 10 - ((time - 10) % 10));
-                    logger.info(compName + "Buffering: {} < 0", time - 1 - ((time - 1) % 1));
-                }
-            }
-        }
-    }
-    /**
      * handle a pieceNotAvailable informing that we asked a piece to a node that
      * didn't have it
      */
@@ -2039,30 +1242,30 @@ public final class Vod extends MsgRetryComponent {
             logger.warn(compName + "handlePieceNotAvailable " + event.getPiece()
                     + " at " + event.getSource().getId());
             int piece = event.getPiece();
-            if (!partialPieces.containsKey(piece)) {
+            if (!downloadMngr.partialPieces.containsKey(piece)) {
                 return;
             }
 
             VodAddress peer = event.getVodSource();
 
             // mark that we downloaded a block
-            VodDescriptor peerInfo = store.getVodDescriptorFromVodAddress(peer);
-            partialPieces.remove(event.getPiece());
+            VodDescriptor peerInfo = connectionMngr.store.getVodDescriptorFromVodAddress(peer);
+            downloadMngr.partialPieces.remove(event.getPiece());
             if (peerInfo == null) {
                 return;
             }
             peerInfo.discardPiece(event.getPiece());
 //            removeFromUploaders(peer);
-            if (bitTorrentSet.contains(peer)) {
-                VodDescriptor toBeDisconnected = bitTorrentSet.updatePeerInfo(
+            if (connectionMngr.bitTorrentSet.contains(peer)) {
+                VodDescriptor toBeDisconnected = connectionMngr.bitTorrentSet.updatePeerInfo(
                         event.getVodSource(), event.getUtility(),
                         event.getAvailableChunks(),
                         event.getAvailablePieces());
                 if (toBeDisconnected != null) {
                     triggerDisconnectRequest(toBeDisconnected.getVodAddress(), false);
                 }
-            } else if (upperSet.contains(peer)) {
-                VodAddress toBeDisconnected = upperSet.updateUtility(peer,
+            } else if (connectionMngr.upperSet.contains(peer)) {
+                VodAddress toBeDisconnected = connectionMngr.upperSet.updateUtility(peer,
                         event.getUtility());
                 if (toBeDisconnected != null) {
                     triggerDisconnectRequest(toBeDisconnected, false);
@@ -2070,78 +1273,7 @@ public final class Vod extends MsgRetryComponent {
             }
         }
     };
-    /**
-     * handle a message from gvodPeer asking to change the utility
-     */
-    Handler<ChangeUtility> handleChangeUtility = new Handler<ChangeUtility>() {
-        @Override
-        public void handle(ChangeUtility event) {
-            UtilityVod utility = (UtilityVod) self.getUtility();
-            logger.trace(compName + "handleChangeUtility (readpos/utility): " + event.getReadPos() + "/"
-                    + event.getUtility());
-            if (simulation) {
-                int reqUtility = event.getUtility();
-                int newUtility = storage.getBitField().setNextUncompletedChunk(reqUtility);
-                if (newUtility != utility.getChunk()) {
-                    changeUtility(newUtility);
-                }
-                pieceToRead.set(reqUtility * BitField.NUM_PIECES_PER_CHUNK);
-            } else {
-                changeUtilityPosition(event.getUtility(),
-                        event.getReadPos(),
-                        event.getResponseBody());
-            }
-        }
-    };
-    /**
-     * handle jumpforward message from gvodPeer containing a relative jump
-     * forward distance
-     */
-    Handler<JumpForward> handleJumpForward = new Handler<JumpForward>() {
-        @Override
-        public void handle(JumpForward event) {
-            UtilityVod utility = (UtilityVod) self.getUtility();
-            logger.trace(compName + "handleJumpForward");
-            int newUtility = utility.getChunk() + event.getGap();
-            if (utility.isSeeder()) {
-                return;
-            }
-            if (newUtility >= storage.getBitField().getChunkFieldSize()) {
-                newUtility = storage.getBitField().getChunkFieldSize() - 1;
-            }
 
-            newUtility = storage.getBitField().setNextUncompletedChunk(newUtility);
-            if (newUtility != utility.getChunk()) {
-                changeUtility(newUtility);
-                startJumpForward = System.currentTimeMillis();
-                jumped = true;
-                pieceToRead.set(newUtility * BitField.NUM_PIECES_PER_CHUNK);
-                logger.info(compName + "handle jumpForward, utility : {} piece to read : {}",
-                        utility.getPiece(), pieceToRead.get());
-                nextPieceToSend.set(pieceToRead.get());
-            }
-
-        }
-    };
-    /**
-     * same as jumpforward but back
-     */
-    Handler<JumpBackward> handleJumpBackward = new Handler<JumpBackward>() {
-        @Override
-        public void handle(JumpBackward event) {
-            logger.trace(compName + "handleJumpBackward");
-            UtilityVod utility = (UtilityVod) self.getUtility();
-            int newUtility = utility.getChunk() - event.getGap();
-            if (newUtility >= storage.getBitField().getChunkFieldSize()) {
-                newUtility = storage.getBitField().getChunkFieldSize() - 1;
-            }
-            pieceToRead.set(newUtility * BitField.NUM_PIECES_PER_CHUNK);
-            newUtility = storage.getBitField().setNextUncompletedChunk(newUtility);
-            if (newUtility != utility.getChunk()) {
-                changeUtility(newUtility);
-            }
-        }
-    };
     /**
      * handle a request to share the hashes of a chunk's pieces
      */
@@ -2154,7 +1286,7 @@ public final class Vod extends MsgRetryComponent {
             }
             msgReceived(event.getVodSource());
 
-            byte[] hashes = storage.getMetaInfo().getChunkHashes(event.getChunk());
+            byte[] hashes = downloadMngr.storage.getMetaInfo().getChunkHashes(event.getChunk());
             if (hashes != null) {
                 int numParts = 0;
                 int lastHashSize = hashes.length % mtu;
@@ -2208,8 +1340,8 @@ public final class Vod extends MsgRetryComponent {
                 return;
             }
 
-            if (storage.getMetaInfo().haveHashes(chunk)) { //already have hashes
-                hashRequests.remove(chunk);
+            if (downloadMngr.storage.getMetaInfo().haveHashes(chunk)) { //already have hashes
+                downloadMngr.hashRequests.remove(chunk);
                 awaitingHashResponses.remove(hashReqId);
                 outstandingHashRequest.remove(hashReqId);
                 CancelTimeout ct = new CancelTimeout(hashReqId);
@@ -2233,8 +1365,8 @@ public final class Vod extends MsgRetryComponent {
                     }
 
                     // check if already received the hashes, if yes - remove req & responses
-                    if (storage.getMetaInfo().setPieceHashes(allHashes.array(), chunk)) {
-                        hashRequests.remove(chunk);
+                    if (downloadMngr.storage.getMetaInfo().setPieceHashes(allHashes.array(), chunk)) {
+                        downloadMngr.hashRequests.remove(chunk);
                         awaitingHashResponses.remove(hashReqId);
                         outstandingHashRequest.remove(hashReqId);
                         CancelTimeout ct = new CancelTimeout(hashReqId);
@@ -2263,169 +1395,16 @@ public final class Vod extends MsgRetryComponent {
         @Override
         public void handle(DataMsg.HashTimeout event) {
             outstandingHashRequest.remove(event.getTimeoutId());
-            if (hashRequests.containsKey(event.getChunk())) {
-                hashRequests.get(event.getChunk()).remove(event.getPeer());
-                if (hashRequests.get(event.getChunk()).isEmpty()) {
-                    hashRequests.remove(event.getChunk());
+            if (downloadMngr.hashRequests.containsKey(event.getChunk())) {
+                downloadMngr.hashRequests.get(event.getChunk()).remove(event.getPeer());
+                if (downloadMngr.hashRequests.get(event.getChunk()).isEmpty()) {
+                    downloadMngr.hashRequests.remove(event.getChunk());
                 }
                 logger.warn(compName + "Hash Request timed out");
                 // no need to re-send hash request, as this will happen during piece selection.
             }
         }
     };
-
-    /**
-     * change the utility value, search the first undownloaded piece from the
-     * new Utility position and set it as the new utility and start to send the
-     * packet corresponding to the new utility to the video player.
-     *
-     * @param nUtility
-     * @param responseBody
-     * @param positionToRead
-     */
-    private void changeUtilityPosition(int seekPos, int readPos,
-            OutputStream responseBody) {
-        logger.info(compName + "changeUtilityPosition seekPos/readPos {}/{} ", seekPos, readPos);
-        UtilityVod utility = (UtilityVod) self.getUtility();
-        int piece2Read;
-        int offsetWithinPieceToRead;
-        int newUtility;
-        int chunkForByte = (seekPos / BitField.SUBPIECE_SIZE)
-                / BitField.NUM_SUBPIECES_PER_PIECE / BitField.NUM_PIECES_PER_CHUNK;
-
-        newUtility = storage.getBitField().setNextUncompletedChunk(chunkForByte);
-
-        if (isMp4() == false) { // FLV
-            // TODO - is the chunk size is fixed here at 2MB - 128 pieces??!?
-            piece2Read = seekPos / (BitField.NUM_SUBPIECES_PER_PIECE * BitField.SUBPIECE_SIZE);
-            offsetWithinPieceToRead = seekPos % (BitField.NUM_SUBPIECES_PER_PIECE * BitField.SUBPIECE_SIZE);
-
-            storage.getBitField().setNextUncompletedPiece(piece2Read);
-
-            utility.setPiece(piece2Read);
-
-        } else {
-            // mp4
-            // 1. calculate new byte position for seek position in millisecs
-            // 2. set newUtility to be first uncompleted chunk position
-
-            // Need to start reading from beginning of chunk to get keys for pieces
-            // was pieceToRead
-            piece2Read = seekPos / (BitField.NUM_SUBPIECES_PER_PIECE * BitField.SUBPIECE_SIZE);
-            offsetWithinPieceToRead = seekPos - (piece2Read * BitField.SUBPIECE_SIZE * BitField.NUM_SUBPIECES_PER_PIECE);
-
-        }
-
-        if (newUtility != utility.getChunk()) {
-            changeUtility(newUtility);
-        }
-
-        nextPieceToSend.set(piece2Read);
-
-        Sender oldSender = sender;
-
-        sender = new Sender(this, responseBody, piece2Read, offsetWithinPieceToRead);
-        sender.start();
-        if (buffering.get()
-                && (storage.getBitField().getNextUncompletedPiece()
-                >= piece2Read + bufferingWindow
-                || storage.complete()
-                || storage.getBitField().getNextUncompletedPiece()
-                >= storage.getBitField().numberPieces())) {
-            restartToRead();
-        }
-        pieceToRead.set(piece2Read);
-
-        if (oldSender != null) {
-            oldSender.interrupt();
-        }
-
-    }
-
-    /**
-     * change the utility value, search for the first piece not downloaded from
-     * the nUtility position and set it as the new utility.
-     *
-     * @param newUtility
-     */
-    private void changeUtility(int newUtility) {
-        UtilityVod utility = (UtilityVod) self.getUtility();
-        // TODO JIM - remove this and fix problem
-        buffering.set(true);
-
-        int oldUtility = utility.getChunk();
-        utility.setChunk(newUtility);
-//        snapshot.setUtility(self.getAddress(), utility.getChunck());
-        bitTorrentSet.getStats().changeUtility(oldUtility, utility,
-                storage.getBitField().numberPieces(), storage.getBitField());
-
-        // TODO: Check if I already have nodes at the new utility level first.
-        // Ask the bootstrap server for nodes at the new utility level
-        // Nodes that are behind NATs will be slower to connect to - if i already
-        // have an open session to them - use it.
-
-        /* we have to do that on the upperSet because when the utility
-         * increases we can have some node that have to be in the utilitySet
-         * and not in the upperSet that will stay in the upperSet
-         * we don't have to do it for the utilitySet because the correction
-         * will be done at the next update of the sets
-         */
-        List<VodDescriptor> noLongerInUpperSet = upperSet.changeUtility(utility);
-        List<VodDescriptor> tocheck = new ArrayList<VodDescriptor>();
-        for (VodDescriptor node : noLongerInUpperSet) {
-            UtilityVod u = (UtilityVod) node.getUtility();
-            if (u.getChunk() < utility.getChunk() + utility.getOffset()
-                    && u.getChunk() > utility.getChunk() - utility.getOffset()) {
-                tocheck.add(node);
-            }
-        }
-        // Add those nodes that have now moved from upper-set to bittorrent set
-        List<VodDescriptor> sendConnect = bitTorrentSet.updateAll(tocheck, utility);
-        logger.info(compName + "Utility changed, removing " + sendConnect.size() + " from upper set");
-        noLongerInUpperSet.removeAll(sendConnect);
-
-        for (VodDescriptor node : noLongerInUpperSet) {
-            // TODO - new message to move nodes from Lower set to Utility set.
-            // Here, we're using two msgs to do the same thing...
-            // TODO - do we have a cleanup event to remove old connections from
-            // lower sets - e.g., incase this disconnect msg is lost?
-            triggerDisconnectRequest(node.getVodAddress(), false);
-        }
-
-        if (utility.getPiece() <= storage.getBitField().numberPieces()) {
-            for (VodDescriptor node : sendConnect) {
-                triggerConnectRequest(node, true);
-            }
-        }
-
-        /* force the check of the below set, else the nodes take
-         * time to know that one node of their upperSet changed its
-         * utility
-         */
-//        for (VodDescriptor node : lowerSet.getAll()) {
-//            triggerRefRequest(node);
-//        }
-        if (seeder) {
-            for (VodDescriptor node : bitTorrentSet.getAll()) {
-                bitTorrentSet.remove(node.getVodAddress());
-                triggerDisconnectRequest(node.getVodAddress(), false);
-            }
-        }
-
-        int i = utility.getChunk();
-        if (utility.getPiece() <= storage.getBitField().numberPieces()) {
-            while (i < storage.getBitField().getChunkFieldSize() + 11) {
-                if (fingers.get(i) != null) {
-                    VodDescriptor node = fingers.get(i);
-                    triggerConnectRequest(node, true);
-                }
-                i++;
-            }
-        }
-
-        self.updateUtility(utility);
-        updateSetsAndConnect();
-    }
 
 //    Handler<ChangeUtilityMsg.Response> handleChangeUtilityMsgResponse =
 //            new Handler<ChangeUtilityMsg.Response>() {
@@ -2469,24 +1448,24 @@ public final class Vod extends MsgRetryComponent {
         @Override
         public void handle(Read event) {
 //            logger.trace(compName + "handleRead:");
-            if (!buffering.get() && event.getTimeoutId() == readTimerId) {
+            if (!playerMngr.buffering.get() && event.getTimeoutId() == readTimerId) {
                 // TODO - IndexOutOfBoundsException here sometimes
-                if (!storage.getBitField().getPiece(pieceToRead.get())) {
-                    logger.warn(compName + "Buffering piece {}", pieceToRead.get());
+                if (!downloadMngr.storage.getBitField().getPiece(downloadMngr.pieceToRead.get())) {
+                    logger.warn(compName + "Buffering piece {}", downloadMngr.pieceToRead.get());
                     bufferingNum++;
 
-                    stoppedReadingAtTime = System.currentTimeMillis();
-                    buffering.set(true);
+                    playerMngr.stoppedReadingAtTime = System.currentTimeMillis();
+                    playerMngr.buffering.set(true);
                 } else {
-                    pieceToRead.getAndIncrement();
-                    if (pieceToRead.get() >= storage.getBitField().numberPieces()
-                            || pieceToRead.get() >= storage.getBitField().getPieceFieldLength() * 8) {
+                    downloadMngr.pieceToRead.getAndIncrement();
+                    if (downloadMngr.pieceToRead.get() >= downloadMngr.storage.getBitField().numberPieces()
+                            || downloadMngr.pieceToRead.get() >= downloadMngr.storage.getBitField().getPieceFieldLength() * 8) {
                         logger.info(compName + "finished to read after {}, number of buffering={} "
                                 + bW,
-                                durationToString(System.currentTimeMillis() - startedAtTime), bufferingNum);
+                                durationToString(System.currentTimeMillis() - playerMngr.startedAtTime), bufferingNum);
                         delegator.doTrigger(new ReadingCompleted(self.getAddress(), bufferingNum, waiting,
-                                misConnect, bufferingTime, null,
-                                utilityAfterTime, freeRider, totalJumpForward), vod);
+                                misConnect, playerMngr.totalBufferTime, null,
+                                historyMngr.getUtilityAfterTime(), downloadMngr.freeRider, playerMngr.totalJumpForward), vod);
                         CancelPeriodicTimeout cPT = new CancelPeriodicTimeout(readTimerId);
                         delegator.doTrigger(cPT, timer);
                         readTimerId = null;
@@ -2510,19 +1489,19 @@ public final class Vod extends MsgRetryComponent {
 
     public void play() {
 //        read = true;
-        if (buffering.get()
-                && (storage.getBitField().getNextUncompletedPiece()
-                >= pieceToRead.get() + bufferingWindow || storage.complete()
-                || storage.getBitField().getNextUncompletedPiece()
-                >= storage.getBitField().numberPieces())) {
-            logger.info(compName + "RESTARTING TO READ: " + self.getId() + " buffering=" + buffering + " piece-to-read:"
-                    + pieceToRead.get() + " -- bufferingWindow: " + bufferingWindow
-                    + " => First uncompleted piece: " + storage.getBitField().getNextUncompletedPiece());
-            restartToRead();
+        if (playerMngr.buffering.get()
+                && (downloadMngr.storage.getBitField().getNextUncompletedPiece()
+                >= downloadMngr.pieceToRead.get() + playerMngr.bufferingWindow || downloadMngr.storage.complete()
+                || downloadMngr.storage.getBitField().getNextUncompletedPiece()
+                >= downloadMngr.storage.getBitField().numberPieces())) {
+            logger.info(compName + "RESTARTING TO READ: " + self.getId() + " buffering=" + playerMngr.buffering + " piece-to-read:"
+                    + downloadMngr.pieceToRead.get() + " -- bufferingWindow: " + playerMngr.bufferingWindow
+                    + " => First uncompleted piece: " + downloadMngr.storage.getBitField().getNextUncompletedPiece());
+            downloadMngr.restartToRead(time);
         } else {
-            logger.info(compName + "NOT RESTARTING TO READ: " + self.getId() + " buffering=" + buffering + " piece-to-read:"
-                    + pieceToRead.get() + " -- bufferingWindow: " + bufferingWindow
-                    + " => First uncompleted piece: " + storage.getBitField().getNextUncompletedPiece());
+            logger.info(compName + "NOT RESTARTING TO READ: " + self.getId() + " buffering=" + playerMngr.buffering + " piece-to-read:"
+                    + downloadMngr.pieceToRead.get() + " -- bufferingWindow: " + playerMngr.bufferingWindow
+                    + " => First uncompleted piece: " + downloadMngr.storage.getBitField().getNextUncompletedPiece());
         }
     }
     /**
@@ -2534,7 +1513,7 @@ public final class Vod extends MsgRetryComponent {
         public void handle(Pause event) {
             logger.trace(compName + "handlePause");
 //            read = false;
-            buffering.set(true);
+            playerMngr.buffering.set(true);
         }
     };
     /**
@@ -2543,15 +1522,15 @@ public final class Vod extends MsgRetryComponent {
     Handler<SlowBackground> handleSlowBackground = new Handler<SlowBackground>() {
         @Override
         public void handle(SlowBackground event) {
-            if (maxWindowSize == 0) {
-                maxWindowSize = pipeSize * VodConfig.LB_MAX_SEGMENT_SIZE;
+            if (connectionMngr.maxWindowSize == 0) {
+                connectionMngr.maxWindowSize = downloadMngr.pipeSize * VodConfig.LB_MAX_SEGMENT_SIZE;
             }
-            maxWindowSize = maxWindowSize / 2;
-            if (maxWindowSize < VodConfig.LB_MAX_SEGMENT_SIZE) {
-                maxWindowSize = VodConfig.LB_MAX_SEGMENT_SIZE;
+            connectionMngr.maxWindowSize = connectionMngr.maxWindowSize / 2;
+            if (connectionMngr.maxWindowSize < VodConfig.LB_MAX_SEGMENT_SIZE) {
+                connectionMngr.maxWindowSize = VodConfig.LB_MAX_SEGMENT_SIZE;
             }
-            for (VodDescriptor node : store.getAll()) {
-                node.getWindow().setMaxWindowSize(maxWindowSize);
+            for (VodDescriptor node : connectionMngr.store.getAll()) {
+                node.getWindow().setMaxWindowSize(connectionMngr.maxWindowSize);
             }
         }
     };
@@ -2561,220 +1540,12 @@ public final class Vod extends MsgRetryComponent {
     Handler<SpeedBackground> handleSpeedBackground = new Handler<SpeedBackground>() {
         @Override
         public void handle(SpeedBackground event) {
-            maxWindowSize = +maxWindowSize / 2;
-            for (VodDescriptor node : store.getAll()) {
-                node.getWindow().setMaxWindowSize(maxWindowSize);
+            connectionMngr.maxWindowSize = +connectionMngr.maxWindowSize / 2;
+            for (VodDescriptor node : connectionMngr.store.getAll()) {
+                node.getWindow().setMaxWindowSize(connectionMngr.maxWindowSize);
             }
         }
     };
-
-    /**
-     * tell vodPeer that the downloading is finished, put the stream in the
-     * background streams and become a seed
-     */
-    private void finishedDownloading() {
-        UtilityVod utility = (UtilityVod) self.getUtility();
-        seeder = true;
-        buffering.set(false);
-        long duration = System.currentTimeMillis() - startedAtTime;
-        logger.info(compName + "finished buffering after {} ratio : {} ("
-                + utility.getChunk() + ";" + utility.getPiece() + ") " + duration + " " + freeRider,
-                durationToString(duration),
-                piecesFromUpperSet / piecesFromUtilitySet);
-        logger.info(compName + "Download time: {}  , Buffering time: {}",
-                durationToString(duration), bufferingTime);
-
-        // write hash pieces to file when finished downloading.
-        if (storage instanceof StorageMemMapWholeFile) {
-            StorageMemMapWholeFile se = (StorageMemMapWholeFile) storage;
-            try {
-                se.writePieceHashesToFile();
-            } catch (FileNotFoundException ex) {
-                java.util.logging.Logger.getLogger(Vod.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (IOException ex) {
-                java.util.logging.Logger.getLogger(Vod.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-
-        DownloadCompletedSim down = new DownloadCompletedSim(self.getAddress(), duration,
-                freeRider, jumped);
-        delegator.doTrigger(down, vod);
-        delegator.doTrigger(down, status);
-        restartToRead();
-        logger.info(compName + "become seeder");
-        changeUtility(VodConfig.SEEDER_UTILITY_VALUE);
-
-        try {
-            ActiveTorrents.makeSeeder(torrentFileAddress);
-        } catch (Exception e) {
-            logger.error(compName + "impossible to add this movie to the background movies");
-        }
-
-    }
-
-    /**
-     * trigger a disconnect request to add
-     *
-     * @param dest
-     */
-    private void triggerDisconnectRequest(VodAddress dest, boolean noDelay) {
-
-        logger.warn(compName + "trigger DisconnectRequest to {}", dest.getId());
-        if (noDelay) {
-            DisconnectMsg.Request dr = new DisconnectMsg.Request(self.getAddress(), dest);
-            ScheduleRetryTimeout st = new ScheduleRetryTimeout(config.getConnectionTimeout(), 1);
-            DisconnectMsg.RequestTimeout drt = new DisconnectMsg.RequestTimeout(st, dr);
-            delegator.doRetry(drt);
-//            removeFromUploaders(addr);
-            trigger(new DisconnectNeighbour(dest.getId()), natTraverserPort);
-        } else {
-            ScheduleTimeout st = new ScheduleTimeout(config.getConnectionTimeout());
-            st.setTimeoutEvent(new DisconnectTimeout(st, dest));
-            delegator.doTrigger(st, timer);
-        }
-    }
-
-    /**
-     * remove peer from the uploader
-     *
-     * @param peer
-     */
-    /**
-     * trigger a connect request to node
-     *
-     * @param node
-     * @param toUtilitySet
-     */
-    private void triggerConnectRequest(VodDescriptor node, boolean toUtilitySet) {
-        UtilityVod utility = (UtilityVod) self.getUtility();
-        if (node != null) {
-            if (node.getVodAddress().getId() == self.getAddress().getId()) {
-                logger.warn(compName + "DO NOT CONNECT TO SELF");
-                return;
-            }
-            if (ongoingConnectRequests.containsKey(node.getVodAddress().getId())) {
-                return;
-            }
-
-            UtilityVod u = (UtilityVod) node.getUtility();
-            logger.info(compName + "trigger ConnectRequest to {} myUtility ("
-                    + utility.getChunk() + ";" + utility.getPiece() + ") its ("
-                    + u.getChunk() + ";" + u.getPiece() + ")",
-                    node.getVodAddress().getId());
-
-            ScheduleRetryTimeout st = new ScheduleRetryTimeout(2000, 3, 1.5d);
-            ConnectMsg.Request request = new ConnectMsg.Request(
-                    self.getAddress(), node.getVodAddress(), u, toUtilitySet, mtu);
-            ConnectMsg.RequestTimeout retryRequest = new ConnectMsg.RequestTimeout(st, request,
-                    toUtilitySet);
-            delegator.doRetry(retryRequest);
-            ongoingConnectRequests.put(node.getVodAddress().getId(), System.currentTimeMillis());
-        }
-    }
-
-    /**
-     * start downloading a piece from peer
-     *
-     * @param peer
-     * @param numRequestBlocks
-     * @param ackId
-     * @param rtt
-     */
-    private void startDownloadingPieceFrom(VodAddress peer,
-            int numRequestBlocks, TimeoutId ackId, long rtt) {
-        logger.trace(compName + "Starting to download {} blocks from : {}", numRequestBlocks,
-                peer.getId());
-        if (numRequestBlocks <= 0) {
-            if (ackId != null) {
-                delegator.doTrigger(new DataMsg.Ack(self.getAddress(), peer, ackId, rtt), network);
-            }
-            logger.debug(compName + "NumBlocks < 0. AckId was not null. Not requesting piece");
-            return;
-        }
-        int piece;
-        List<Integer> missing = null;
-        do {
-            piece = selectPiece(peer);
-            logger.trace(compName + "piece to download : {}", piece);
-            if (piece == -1) {
-                // no piece is eligible for download from this peer
-                if (upperSet.contains(peer)) {
-                    piece = storage.getBitField().getNextUncompletedPiece();
-                    while (piece < storage.getBitField().numberPieces()
-                            && (partialPieces.containsKey(piece)
-                            || storage.getBitField().getPiece(piece))) {
-                        piece++;
-                    }
-                    if (piece >= storage.getBitField().numberPieces()) {
-                        if (ackId != null) {
-                            delegator.doTrigger(new DataMsg.Ack(self.getAddress(), peer, ackId, rtt), network);
-                        }
-                        logger.debug(compName + "Piece > current. AckId was not null. Not requesting piece");
-                        return;
-                    }
-                } else {
-                    if (ackId != null) {
-                        delegator.doTrigger(new DataMsg.Ack(self.getAddress(), peer, ackId, rtt), network);
-                    }
-                    logger.debug(compName + "Utility set. AckId was not null. Not requesting piece");
-                    return;
-                }
-            }
-            missing = storage.missingSubpieces(piece);
-            if (missing.isEmpty()) {
-                pieceCompleted(piece, null);
-                piece = -1;
-            }
-        } while (piece == -1);
-        int chunk = piece / BitField.NUM_PIECES_PER_CHUNK;
-        if (!storage.getMetaInfo().haveHashes(chunk)) {
-            if ((!hashRequests.containsKey(chunk)
-                    || !hashRequests.get(chunk).contains(peer))) {
-                triggerHashRequest(peer, chunk, 0);
-                return;
-            } else {
-                logger.debug(compName + "Hash request outstanding.");
-            }
-            if (ackId != null) {
-                delegator.doTrigger(new DataMsg.Ack(self.getAddress(), peer, ackId, rtt), network);
-            }
-        }
-        UtilityVod utility = (UtilityVod) self.getUtility();
-        if (piece > pieceToRead.get() + bufferingWindow
-                && (((UtilityVod) store.getVodDescriptorFromVodAddress(peer).getUtility()).getChunk()
-                > utility.getChunk()
-                || ((UtilityVod) store.getVodDescriptorFromVodAddress(peer).getUtility()).isSeeder())) {
-            chunk = utility.getChunk() + 3;
-            if (chunk < storage.getMetaInfo().getNbChunks()
-                    && !storage.getMetaInfo().haveHashes(chunk)) {
-                triggerHashRequest(peer, chunk, 0);
-            }
-        }
-        int blockCount = BitField.NUM_SUBPIECES_PER_PIECE;
-        PieceInTransit transit = new PieceInTransit(piece, blockCount, peer,
-                missing);
-        partialPieces.put(piece, transit);
-
-        VodDescriptor peerInfo = store.getVodDescriptorFromVodAddress(peer);
-
-        if (peerInfo == null) {
-            if (ackId != null) {
-                delegator.doTrigger(new DataMsg.Ack(self.getAddress(), peer, ackId, rtt), network);
-            }
-            logger.debug(compName + "PeerInfo null. AckId was not null. Not requesting piece");
-            return;
-        }
-        int lim = numRequestBlocks;
-        if (missing.size() < lim) {
-            lim = missing.size();
-            logger.debug(compName + "Changed numRequestBlocks to {}", lim);
-        }
-        for (int i = 0; i < lim; i++) {
-            int nextBlock = transit.getNextSubpieceToRequest();
-
-            triggerDataMsgRequest(peerInfo, ackId, piece, nextBlock, rtt);
-        }
-    }
 
     private void triggerHashRequest(VodAddress peer, int chunk, int part) {
 
@@ -2794,10 +1565,10 @@ public final class Vod extends MsgRetryComponent {
         }
         awaitingHashResponses.put(tid, awaitingResponses);
 
-        if (!hashRequests.containsKey(chunk)) {
-            hashRequests.put(chunk, new ArrayList<VodAddress>());
+        if (!downloadMngr.hashRequests.containsKey(chunk)) {
+            downloadMngr.hashRequests.put(chunk, new ArrayList<VodAddress>());
         }
-        hashRequests.get(chunk).add(peer);
+        downloadMngr.hashRequests.get(chunk).add(peer);
     }
 
     private void triggerDataMsgRequest(VodDescriptor peerInfo, TimeoutId ackId, int piece,
@@ -2823,99 +1594,6 @@ public final class Vod extends MsgRetryComponent {
 
         logger.debug(compName + "Requesting subpiece {}:{} on {}",
                 new Object[]{piece, subpiece, des.getId()});
-    }
-
-    /**
-     * select next piece to download from peer
-     *
-     * @param peer
-     * @return
-     */
-    private int selectPiece(VodAddress peer) {
-        VodDescriptor info = store.getVodDescriptorFromVodAddress(peer);
-        if (info == null) {
-            logger.warn(compName + "No descriptor for {} when selecting piece", peer.getId());
-            return -1;
-        }
-
-        if (upperSet.contains(peer)) {
-            int piece = bitTorrentSet.getStats().getUpperPiece(partialPieces,
-                    pieceToRead.get(), bufferingWindow);
-            if (piece != -1) {
-                return piece;
-            }
-        }
-        // first we try to complete a stale piece before selecting a new piece
-        // [strict piece selection policy]
-        int stalePiece = selectStalePiece(peer);
-        if (stalePiece != -1) {
-            logger.warn(compName + "Selecting stale piece {} from peer {}", stalePiece, peer.getId());
-            return stalePiece;
-        }
-
-        // compute the set of eligible pieces
-        if (upperSet.contains(peer)) {
-            int piece = bitTorrentSet.getStats().pieceToDownloadFromUpper(
-                    info, partialPieces, pieceToRead.get(), bufferingWindow);
-            if (piece == -1) {
-                piece = storage.getBitField().getNextUncompletedPiece();
-                while (piece < storage.getBitField().numberPieces()
-                        && (partialPieces.containsKey(piece)
-                        || storage.getBitField().getPiece(piece))) {
-                    piece++;
-                }
-                if (piece < storage.getBitField().numberPieces()) {
-                    logger.trace(compName + "Upper set: Piece num {} found", piece);
-                    return piece;
-                } else {
-                    logger.trace(compName + "Upper set: Piece num {} is greater than "
-                            + "maxPieceSize {}", piece,
-                            storage.getBitField().numberPieces());
-                    return -1;
-                }
-            }
-            return piece;
-        } else {
-            int piece = bitTorrentSet.getStats().pieceToDownload(
-                    info, partialPieces, pieceToRead.get(), bufferingWindow);
-            logger.trace(compName + "Piece num {} found from bittorrent set", piece);
-            return piece;
-        }
-
-    }
-
-    /**
-     * select a stale piece to download from peer
-     *
-     * @param peer
-     * @return
-     */
-    private int selectStalePiece(VodAddress peer) {
-        VodDescriptor info = store.getVodDescriptorFromVodAddress(peer);
-        if (info == null) {
-            return -1;
-        }
-        List<Integer> eligible;
-        if (upperSet.contains(peer)) {
-            eligible = new ArrayList<Integer>(partialPieces.keySet());
-        } else {
-            eligible = bitTorrentSet.getStats().getEligible(new ArrayList<Integer>(partialPieces.keySet()), info);
-        }
-        // eligible contains the pieces in transit that the peer has
-        // we look for stale ones
-
-        for (int piece : eligible) {
-            PieceInTransit transit = partialPieces.get(piece);
-            if (transit.isStalePiece(config.getDataRequestTimeout())) {
-                // discard old stale piece and select it again
-                partialPieces.remove(piece);
-                for (VodDescriptor inf : store.getAll()) {
-                    inf.discardPiece(piece);
-                }
-                return piece;
-            }
-        }
-        return -1;
     }
 
     /**
@@ -2982,7 +1660,7 @@ public final class Vod extends MsgRetryComponent {
      * @return
      */
     public boolean isBuffering() {
-        return buffering.get();
+        return playerMngr.buffering.get();
     }
 
     /**
@@ -3000,7 +1678,7 @@ public final class Vod extends MsgRetryComponent {
      * @return
      */
     public int getNextPieceToSend() {
-        return nextPieceToSend.get();
+        return playerMngr.nextPieceToSend.get();
     }
 
     /**
@@ -3009,7 +1687,7 @@ public final class Vod extends MsgRetryComponent {
      * @return
      */
     public Storage getStorage() {
-        return storage;
+        return downloadMngr.storage;
     }
 
     /**
@@ -3018,11 +1696,11 @@ public final class Vod extends MsgRetryComponent {
      * @param nextPieceToSend
      */
     public void setNextPieceToSend(int nextPieceToSend) {
-        this.nextPieceToSend.set(nextPieceToSend);
+        playerMngr.nextPieceToSend.set(nextPieceToSend);
     }
 
     private boolean isMp4() {
-        return storage.getMetaInfo().isMp4();
+        return downloadMngr.storage.getMetaInfo().isMp4();
     }
 
     public void interruptSender() throws SecurityException {
@@ -3040,13 +1718,68 @@ public final class Vod extends MsgRetryComponent {
 
     @Override
     public void stop(Stop event) {
-        if (store != null) {
-            for (VodAddress addr : store.getNeighbours().keySet()) {
+        if (connectionMngr.store != null) {
+            for (VodAddress addr : connectionMngr.store.getNeighbours().keySet()) {
                 triggerDisconnectRequest(addr, true);
             }
         }
         cancelPeriodicTimer(initiateShuffleTimeoutId);
         cancelPeriodicTimer(dataOfferPeriodTimeoutId);
         cancelPeriodicTimer(readTimerId);
+    }
+
+    public class ConnectionDelegator {
+
+        public void connect(VodDescriptor peer, boolean noDelay) {
+            triggerConnectRequest(peer, noDelay);
+        }
+
+        public void disconnect(VodAddress peer, boolean noDelay) {
+            triggerDisconnectRequest(peer, noDelay);
+        }
+
+        public void disconnectResponse(DisconnectMsg.Response resp) {
+            delegator.doTrigger(resp, network);
+        }
+
+        public void leaving(LeaveMsg event) {
+            delegator.doTrigger(event, network);
+        }
+
+        public void dataOffer(DataOfferMsg event) {
+            delegator.doTrigger(event, network);
+        }
+
+        public void dataResp(DataMsg.Response resp) {
+            delegator.doTrigger(resp, network);
+        }
+
+        public void startTimer(ScheduleTimeout st) {
+            delegator.doTrigger(st, timer);
+        }
+
+        public void saturated(DataMsg.Saturated event) {
+            delegator.doTrigger(event, network);
+        }
+    }
+
+    public class DownloadDelegator {
+
+        public void ack(DataMsg.Ack msg) {
+            delegator.doTrigger(msg, network);
+        }
+
+        public void downloadComplete(DownloadCompletedSim msg) {
+            delegator.doTrigger(msg, vod);
+            delegator.doTrigger(msg, status);
+        }
+
+        public void downloadReq(VodDescriptor peerInfo, TimeoutId ackId, int piece, int nextBlock, long rtt) {
+            triggerDataMsgRequest(peerInfo, ackId, piece, nextBlock, rtt);
+        }
+
+        public void hashReq(VodAddress peer, int chunk, int part) {
+            triggerHashRequest(peer, chunk, part);
+        }
     }
 }
