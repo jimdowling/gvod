@@ -2,6 +2,7 @@
 
 if [ $# -lt 1 ] ; then
 echo "usage: $0 videoFilename [other params]"
+echo "./start-seeders.sh messi.mp4"
 exit 1
 fi
 

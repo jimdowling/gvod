@@ -35,6 +35,5 @@ public interface MetaInfo {
     public int getWidth();
     public int getHeight();
     public String getName();
-//    public int getId();
     public boolean isMp4();
 }

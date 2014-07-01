@@ -1947,7 +1947,7 @@ public final class Vod extends MsgRetryComponent {
          */
         List<VodDescriptor> noMoreInUpperSet;
         noMoreInUpperSet = upperSet.changeUtility(utility);
-        List<VodDescriptor> addToUtilitySet;
+        List<VodDescriptor> addToBitTorrentSet;
         if (utility.getChunk() >= 0) {
             List<VodDescriptor> temp = new ArrayList<VodDescriptor>();
             for (VodDescriptor node : noMoreInUpperSet) {
@@ -1958,15 +1958,15 @@ public final class Vod extends MsgRetryComponent {
                 }
 
             }
-            addToUtilitySet = bitTorrentSet.updateAll(temp, utility);
+            addToBitTorrentSet = bitTorrentSet.updateAll(temp, utility);
             if (!seeder) {
-                for (VodDescriptor node : addToUtilitySet) {
+                for (VodDescriptor node : addToBitTorrentSet) {
                     triggerConnectRequest(node, true);
                 }
             }
 
-            logger.info(compName + "Utility changed, removing " + addToUtilitySet.size() + " from upper set");
-            noMoreInUpperSet.removeAll(addToUtilitySet);
+            logger.info(compName + "Utility changed, removing " + addToBitTorrentSet.size() + " from upper set");
+            noMoreInUpperSet.removeAll(addToBitTorrentSet);
         }
         for (VodDescriptor node : noMoreInUpperSet) {
             triggerDisconnectRequest(node.getVodAddress(), false);

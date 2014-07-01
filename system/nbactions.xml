@@ -7,7 +7,7 @@
                 <goal>org.codehaus.mojo:exec-maven-plugin:1.1:exec</goal>
             </goals>
             <properties>
-                <exec.args>-Xmx512m -XX:MaxDirectMemorySize=512m -classpath %classpath se.sics.gvod.system.main.SwingMain http://cloud7.sics.se/gvod/topgear.mp4.data</exec.args>
+                <exec.args>-Xmx512m -XX:MaxDirectMemorySize=512m -classpath %classpath se.sics.gvod.system.main.SwingMain gvod://http://193.10.64.216/messi.mp4.data</exec.args>
                 <exec.workingdir></exec.workingdir>
                 <exec.executable>java</exec.executable>
             </properties>
@@ -19,7 +19,7 @@
                 <goal>org.codehaus.mojo:exec-maven-plugin:1.1:exec</goal>
             </goals>
             <properties>
-                <exec.args>-Xdebug -Xrunjdwp:transport=dt_socket,server=n,address=${jpda.address} -Xmx512m -XX:MaxDirectMemorySize=512m -classpath %classpath se.sics.gvod.system.main.SwingMain http://cloud7.sics.se/gvod/topgear.mp4.data</exec.args>
+                <exec.args>-Xdebug -Xrunjdwp:transport=dt_socket,server=n,address=${jpda.address} -Xmx512m -XX:MaxDirectMemorySize=512m -classpath %classpath se.sics.gvod.system.main.SwingMain gvod://http://193.10.64.216/messi.mp4.data</exec.args>
                 <exec.workingdir></exec.workingdir>
                 <jpda.listen>true</jpda.listen>
                 <exec.executable>java</exec.executable>
@@ -32,7 +32,7 @@
                 <goal>org.codehaus.mojo:exec-maven-plugin:1.1.1:exec</goal>
             </goals>
             <properties>
-                <exec.args>-Xmx512m -XX:MaxDirectMemorySize=512m -classpath %classpath se.sics.gvod.system.main.SwingMain http://cloud7.sics.se/gvod/topgear.mp4.data</exec.args>
+                <exec.args>-Xmx512m -XX:MaxDirectMemorySize=512m -classpath %classpath se.sics.gvod.system.main.SwingMain gvod://http://193.10.64.216/messi.mp4.data</exec.args>
                 <exec.workingdir></exec.workingdir>
                 <profiler.action>profile</profiler.action>
                 <exec.executable>${profiler.java}</exec.executable>

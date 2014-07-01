@@ -223,7 +223,6 @@ public final class VodSimulator extends ComponentDefinition implements GMain {
                 nodeLivingTime.put(id, startedDownloadAt);
                 nodes.add(id);
                 if (measure) {
-
                     toMeasure.add(id);
                     logger.info("add to toMesure {}", toMeasure.size());
                 }

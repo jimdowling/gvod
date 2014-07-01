@@ -271,12 +271,11 @@ public class MetaInfoSimu implements MetaInfo {
     @Override
     public int getNbChunks() {
         return (int) ((length / BitField.NUM_SUBPIECES_PER_PIECE) / BitField.NUM_PIECES_PER_CHUNK);
-//        throw new UnsupportedOperationException("Not supported yet.");
     }
 
     @Override
     public boolean isMp4() {
-        return false;
+        return true;
     }
 
 }

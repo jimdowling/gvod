@@ -39,7 +39,7 @@ import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation5;
  * @author Cosmin Arad <cosmin@sics.se>
  */
 @SuppressWarnings("serial")
-public class VodExperiments {
+public class Main {
 
     static Random random = new Random(0);
     private static int seed;
