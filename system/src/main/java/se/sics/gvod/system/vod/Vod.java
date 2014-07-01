@@ -268,9 +268,9 @@ public final class Vod extends MsgRetryComponent {
             self = init.getSelf();
             config = init.getConfig();
             simulation = init.isSimulation();
-//            if (simulation) {
-//                read = true;
-//            }
+            if (simulation) {
+                read = true;
+            }
             compName = "(" + self.getId() + "," + self.getOverlayId() + ") ";
             overhead = 20;
             bitTorrentSetSize = config.getBitTorrentSetSize();
