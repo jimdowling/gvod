@@ -75,6 +75,9 @@ import se.sics.gvod.net.Nat;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.common.SelfImpl;
+import se.sics.gvod.common.VodDescriptor;
+import se.sics.gvod.croupier.CroupierPort;
+import se.sics.gvod.croupier.events.CroupierJoin;
 import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.gvod.system.peer.VodPeerPort;
 import se.sics.gvod.system.main.GMain;
@@ -130,6 +133,7 @@ public final class VodSimulator extends ComponentDefinition implements GMain {
     
     private AsIpGenerator ipGenerator;
 
+    private VodAddress bootstrapNode;
     
     public VodSimulator() {
         main = this;
@@ -368,9 +372,17 @@ public final class VodSimulator extends ComponentDefinition implements GMain {
                 peer.getControl());
         
         trigger(new Start(), peer.getControl());
+        
+        // bootstrap croupier 
+        List<VodDescriptor> booters = new ArrayList<VodDescriptor>();
+        VodDescriptor vd = new VodDescriptor(addr);
+        booters.add(vd);
+        trigger(new CroupierJoin(booters), peer.getNegative(CroupierPort.class));
+        
         peers.put(id, peer);
         uploadLink.put(id, new Link(uploadBw));
         downloadLink.put(id, new Link(downloadBw));
+        bootstrapNode = addr;
         return peer;
     }
 

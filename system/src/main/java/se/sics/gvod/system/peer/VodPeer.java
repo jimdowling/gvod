@@ -59,8 +59,17 @@ import se.sics.gvod.system.vod.VodInit;
 import se.sics.gvod.system.vod.VodPort;
 import se.sics.gvod.system.main.GMain;
 import se.sics.gvod.system.peer.events.ChangeUtility;
+import se.sics.gvod.system.peer.events.JumpBackward;
+import se.sics.gvod.system.peer.events.JumpForward;
+import se.sics.gvod.system.peer.events.Pause;
+import se.sics.gvod.system.peer.events.Play;
+import se.sics.gvod.system.peer.events.Quit;
+import se.sics.gvod.system.peer.events.QuitCompleted;
+import se.sics.gvod.system.peer.events.ReadingCompleted;
+import se.sics.gvod.system.peer.events.ReportDownloadSpeed;
 import se.sics.gvod.system.storage.Storage;
 import se.sics.gvod.system.vod.VodConfiguration;
+import se.sics.gvod.web.port.DownloadCompletedSim;
 import se.sics.kompics.Fault;
 import se.sics.kompics.Stop;
 
@@ -107,6 +116,7 @@ public final class VodPeer extends ComponentDefinition {
         subscribe(handleInit, control);
         subscribe(handleStop, control);
         subscribe(handleChangeUtility, vodPeer);
+        subscribe(handleCroupierJoin, vodPeer);
         subscribe(handleBootstrapResponse, bootstrap);
         subscribe(handleAddOverlayResponse, bootstrap);
         subscribe(handleRebootstrap, vod.getPositive(VodPort.class));
@@ -270,13 +280,13 @@ public final class VodPeer extends ComponentDefinition {
             trigger(request, bootstrap);
         }
     };
-//    Handler<Quit> handleQuit = new Handler<Quit>() {
-//
-//        @Override
-//        public void handle(Quit event) {
-//            trigger(event, vod.getPositive(VodPeerPort.class));
-//        }
-//    };
+    Handler<Quit> handleQuit = new Handler<Quit>() {
+
+        @Override
+        public void handle(Quit event) {
+            trigger(event, vod.getPositive(VodPeerPort.class));
+        }
+    };
     Handler<ChangeUtility> handleChangeUtility = new Handler<ChangeUtility>() {
         @Override
         public void handle(ChangeUtility event) {
@@ -294,63 +304,72 @@ public final class VodPeer extends ComponentDefinition {
     };
     
     
-//    Handler<JumpForward> handleJumpForward = new Handler<JumpForward>() {
-//
-//        @Override
-//        public void handle(JumpForward event) {
-//            trigger(event, vod.getPositive(VodPeerPort.class));
-//        }
-//    };
-//    Handler<JumpBackward> handleJumpBackward = new Handler<JumpBackward>() {
-//
-//        @Override
-//        public void handle(JumpBackward event) {
-//            trigger(event, vod.getPositive(VodPeerPort.class));
-//        }
-//    };
-//    Handler<QuitCompleted> handleQuitCompleted = new Handler<QuitCompleted>() {
-//
-//        @Override
-//        public void handle(QuitCompleted event) {
-//            trigger(event, gvodPeer);
-//        }
-//    };
-//    Handler<ReadingCompleted> handleReadingCompleted = new Handler<ReadingCompleted>() {
-//
-//        @Override
-//        public void handle(ReadingCompleted event) {
-//            trigger(event, gvodPeer);
-//        }
-//    };
-//    Handler<DownloadCompletedSim> handleDownloadingCompleted = new Handler<DownloadCompletedSim>() {
-//
-//        @Override
-//        public void handle(DownloadCompletedSim event) {
-//            trigger(event, gvodPeer);
-//        }
-//    };
-//    Handler<Play> handlePlay = new Handler<Play>() {
-//
-//        @Override
-//        public void handle(Play event) {
-//            trigger(event, vod.getPositive(VodPort.class));
-//        }
-//    };
-//    Handler<Pause> handlePause = new Handler<Pause>() {
-//
-//        @Override
-//        public void handle(Pause event) {
-//            trigger(event, vod.getPositive(VodPort.class));
-//        }
-//    };
-//    Handler<ReportDownloadSpeed> handleReportDownloadSpeed = new Handler<ReportDownloadSpeed>() {
-//
-//        @Override
-//        public void handle(ReportDownloadSpeed event) {
-//
-//            trigger(event, gvodPeer);
-//        }
-//    };
+    Handler<JumpForward> handleJumpForward = new Handler<JumpForward>() {
+
+        @Override
+        public void handle(JumpForward event) {
+            trigger(event, vod.getPositive(VodPeerPort.class));
+        }
+    };
+    Handler<JumpBackward> handleJumpBackward = new Handler<JumpBackward>() {
+
+        @Override
+        public void handle(JumpBackward event) {
+            trigger(event, vod.getPositive(VodPeerPort.class));
+        }
+    };
+    Handler<QuitCompleted> handleQuitCompleted = new Handler<QuitCompleted>() {
+
+        @Override
+        public void handle(QuitCompleted event) {
+            trigger(event, vodPeer);
+        }
+    };
+    Handler<ReadingCompleted> handleReadingCompleted = new Handler<ReadingCompleted>() {
+
+        @Override
+        public void handle(ReadingCompleted event) {
+            trigger(event, vodPeer);
+        }
+    };
+    Handler<DownloadCompletedSim> handleDownloadingCompleted = new Handler<DownloadCompletedSim>() {
+
+        @Override
+        public void handle(DownloadCompletedSim event) {
+            trigger(event, vodPeer);
+        }
+    };
+    Handler<Play> handlePlay = new Handler<Play>() {
+
+        @Override
+        public void handle(Play event) {
+            trigger(event, vod.getPositive(VodPort.class));
+        }
+    };
+    Handler<Pause> handlePause = new Handler<Pause>() {
+
+        @Override
+        public void handle(Pause event) {
+            trigger(event, vod.getPositive(VodPort.class));
+        }
+    };
+    Handler<ReportDownloadSpeed> handleReportDownloadSpeed = new Handler<ReportDownloadSpeed>() {
+
+        @Override
+        public void handle(ReportDownloadSpeed event) {
+
+            trigger(event, vodPeer);
+        }
+    };
+
+    
+    Handler<CroupierJoin> handleCroupierJoin = new Handler<CroupierJoin>() {
+        @Override
+        public void handle(CroupierJoin event) {
+            trigger(event, croupier.getPositive(CroupierPort.class));
+        }
+    };
+    
     Handler<CroupierJoinCompleted> handleCroupierJoinCompleted = new Handler<CroupierJoinCompleted>() {
         @Override
         public void handle(CroupierJoinCompleted event) {
@@ -408,7 +427,7 @@ public final class VodPeer extends ComponentDefinition {
 //                    bootstrapConfiguration.getClientWebPort());
 //            monitorConfiguration = new VodMonitorConfiguration(
 //                    metaInfo.getMonitorAddress(),
-//                    monitorConfiguration.getViewEvictAfter(),
+//                    monitorConfiguration.getViewEvictAfter()CroupierJoin,
 //                    monitorConfiguration.getClientUpdatePeriod(),
 //                    monitorConfiguration.getClientWebPort());
 //            gvodConfiguration.setReadingPeriod(metaInfo.getReadingPeriod());

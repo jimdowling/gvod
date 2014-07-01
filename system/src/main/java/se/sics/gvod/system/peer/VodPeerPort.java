@@ -20,6 +20,7 @@
  */
 package se.sics.gvod.system.peer;
 
+import se.sics.gvod.croupier.events.CroupierJoin;
 import se.sics.gvod.system.peer.events.Pause;
 import se.sics.gvod.system.peer.events.Play;
 import se.sics.kompics.PortType;
@@ -47,6 +48,8 @@ public class VodPeerPort extends PortType {
         negative(JumpBackward.class); // relays in
         negative(JumpForward.class); // relays in
         negative(Quit.class); // relays in
+        negative(CroupierJoin.class); // bootstrap the peert
+        
         positive(QuitCompleted.class); //relays out
         positive(ReadingCompleted.class); // relays out
         positive(ReportDownloadSpeed.class); // relays out
