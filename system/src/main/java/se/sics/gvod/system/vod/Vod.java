@@ -195,7 +195,7 @@ public final class Vod extends MsgRetryComponent {
     private Map<Integer, VodDescriptor> fingers = new HashMap<Integer, VodDescriptor>();
     private boolean rebootstrap = false;
     private Sender sender;
-//    private boolean read = false;
+    private boolean read = false;
     private boolean simulation;
     private Vod comp;
     private int ackTimeout;
@@ -2509,7 +2509,7 @@ public final class Vod extends MsgRetryComponent {
     };
 
     public void play() {
-//        read = true;
+        read = true;
         if (buffering.get()
                 && (storage.getBitField().getNextUncompletedPiece()
                 >= pieceToRead.get() + bufferingWindow || storage.complete()
@@ -2533,7 +2533,7 @@ public final class Vod extends MsgRetryComponent {
         @Override
         public void handle(Pause event) {
             logger.trace(compName + "handlePause");
-//            read = false;
+            read = false;
             buffering.set(true);
         }
     };
