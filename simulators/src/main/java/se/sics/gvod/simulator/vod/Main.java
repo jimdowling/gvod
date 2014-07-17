@@ -28,6 +28,7 @@ import se.sics.kompics.p2p.experiment.dsl.SimulationScenario;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation1;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation3;
 import java.util.Random;
+import se.sics.gvod.config.VodConfig;
 import se.sics.gvod.net.Nat;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation;
 import se.sics.kompics.p2p.experiment.dsl.distribution.Distribution;
@@ -47,22 +48,25 @@ public class Main {
 
     public static void main(String[] args) throws Throwable {
         
-        if (args.length != 2) {
-            System.out.println("usage: <prog> seedd numNodes");
+        if (args.length != 4) {
+            throw new RuntimeException("usage: <prog> seed seeders leechers videoName");
         }
         
         seed = Integer.parseInt(args[0]);
         random = new Random(seed);
-        final int nbNodes = Integer.parseInt(args[1]);
+        final int nrSeeders = Integer.parseInt(args[1]);
+        final int nrLeechers = Integer.parseInt(args[2]);
+        final String videoName = args[3];
+        VodConfig.init(new String[]{"-seed", args[0]});
         SimulationScenario gvodScenario1 = new SimulationScenario() {
 
             {
 
-                StochasticProcess creatSeed = new StochasticProcess() {
+                StochasticProcess createSeed = new StochasticProcess() {
 
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(1, gvodSeedJoin, 
+                        raise(nrSeeders, gvodSeedJoin, 
                                 uniformInt(65535),
 //                                uniform(13),
                                 constant(5 * 128 * KBps) /* download */,
@@ -72,11 +76,11 @@ public class Main {
                                 );
                     }
                 };
-                StochasticProcess process2 = new StochasticProcess() {
+                StochasticProcess createLeechers = new StochasticProcess() {
 
                     {
                         eventInterArrivalTime(new PoissonDistribution(new Long(1000), random));
-                        raise(nbNodes, gvodJoin1, uniformInt(65535), myDistrib(), 
+                        raise(nrLeechers, gvodJoin1, uniformInt(65535), myDistrib(), 
                                 uniformInt(0));
                     }
                 };
@@ -93,7 +97,7 @@ public class Main {
 
                     {
                         eventInterArrivalTime(constant(1) );
-                        raise(nbNodes * 50 / 100, gvodFail, uniformInt(65535));
+                        raise(nrLeechers * 50 / 100, gvodFail, uniformInt(65535));
                     }
                 };
 
@@ -101,7 +105,7 @@ public class Main {
 
                     {
                         eventInterArrivalTime(exponential(50));
-                        raise(nbNodes * 10 / 100 + 1, gvodJoin1, uniformInt(65535),
+                        raise(nrLeechers * 10 / 100 + 1, gvodJoin1, uniformInt(65535),
                                 myDistrib(), uniformInt(0));
                         raise(10, gvodQuit, uniformInt(65535));
                     }
@@ -111,7 +115,7 @@ public class Main {
 
                     {
                         eventInterArrivalTime(exponential(20000));
-                        raise(nbNodes * 10 / 100 + 1, gvodJumpForward, uniformInt(65535));
+                        raise(nrLeechers * 10 / 100 + 1, gvodJumpForward, uniformInt(65535));
                     }
                 };
 
@@ -119,24 +123,26 @@ public class Main {
 
                     {
                         eventInterArrivalTime(constant(0));
-                        raise(1, startMesurs);
+                        raise(1, startMeasures);
                     }
                 };
                 StochasticProcess process8 = new StochasticProcess() {
 
                     {
                         eventInterArrivalTime(constant(0));
-                        raise(1, stopMesurs);
+                        raise(1, stopMeasures);
                     }
                 };
-                creatSeed.start();
-
+                
+                createSeed.start();
+                createLeechers.startAfterTerminationOf((nrSeeders+1)*1000, createSeed);
+                
 //                process2.startAfterTerminationOf(10000, process1);
-                process7.startAfterTerminationOf(1, creatSeed);
-                process2.startAfterTerminationOf(1000, creatSeed);
+//                process7.startAfterTerminationOf(1, createSeed);
+                
 //                process7.startAfterStartOf(250 * 1000, process2);
 //                 process8.startAfterStartOf(60*60*1000, process2);
-                process8.startAfterStartOf(750 * 1000 + 10, process2);
+//                process8.startAfterStartOf(750 * 1000 + 10, createLeechers);
 //                  process3.startAfterTerminationOf(1000, process2);
 //                process4.startAfterTerminationOf(8*60*1000, process2);
                 //  process5.startAtSameTimeWith(process4);
@@ -144,10 +150,11 @@ public class Main {
                 //terminateAfterTerminationOf(1000, process2);
             }
         };
-        VodCompositeConfiguration configuration = new VodCompositeConfiguration();
-//        configuration.set(args[1], args[2], args[4]);
+        VodCompositeConfiguration configuration = new VodCompositeConfiguration(videoName);
+////        configuration.set(args[1], args[2], args[4]);
         configuration.store();
 
+        System.setProperty("seed", String.valueOf(seed));
         gvodScenario1.setSeed(seed);
 //        gvodScenario1.execute(GVodExecutionMain.class);
         gvodScenario1.simulate(VodSimulationMain.class);
@@ -245,14 +252,14 @@ public class Main {
             return new VodJumpBackward(id, 10);
         }
     };
-    static Operation<StartDataCollection> startMesurs = new Operation<StartDataCollection>() {
+    static Operation<StartDataCollection> startMeasures = new Operation<StartDataCollection>() {
 
         @Override
         public StartDataCollection generate() {
             return new StartDataCollection();
         }
     };
-    static Operation<StopDataCollection> stopMesurs = new Operation<StopDataCollection>() {
+    static Operation<StopDataCollection> stopMeasures = new Operation<StopDataCollection>() {
 
         @Override
         public StopDataCollection generate() {

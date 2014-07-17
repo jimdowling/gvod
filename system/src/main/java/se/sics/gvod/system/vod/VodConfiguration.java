@@ -187,7 +187,7 @@ public class VodConfiguration
                 VodConfig.BUFFERING_WINDOW_NUM_PIECES,
                 VodConfig.getMediaPort(),
                 VodConfig.DEFAULT_MTU,
-                "no-torrent-file-defined");
+                videoName + ".data");
     }
 
     public static long fileLen(String videoFileName) {

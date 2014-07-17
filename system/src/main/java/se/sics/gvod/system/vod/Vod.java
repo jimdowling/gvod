@@ -344,33 +344,58 @@ public final class Vod extends MsgRetryComponent {
             logger.info(compName + "freerider = {}", freeRider);
 
             boolean seeder = init.isSeed();
+            //TODO Alex temp 
+//            SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(config.getShufflePeriod(),
+//                    config.getShufflePeriod());
+//            spt.setTimeoutEvent(new InitiateMembershipSearch(spt, self.getOverlayId()));
+//            delegator.doTrigger(spt, timer);
 
-            SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(config.getShufflePeriod(),
-                    config.getShufflePeriod());
-            spt.setTimeoutEvent(new InitiateMembershipSearch(spt, self.getOverlayId()));
-            delegator.doTrigger(spt, timer);
+//            spt = new SchedulePeriodicTimeout(config.getDataOfferPeriod(),
+//                    config.getDataOfferPeriod());
+//            spt.setTimeoutEvent(new InitiateDataOffer(spt, self.getOverlayId()));
+//            delegator.doTrigger(spt, timer);
+//            dataOfferPeriodTimeoutId = spt.getTimeoutEvent().getTimeoutId();
+            if (simulation) {
+                String tempDirProp = "tempDir";
+                String tempDirPath = System.getProperty(tempDirProp);
 
-            spt = new SchedulePeriodicTimeout(config.getDataOfferPeriod(),
-                    config.getDataOfferPeriod());
-            spt.setTimeoutEvent(new InitiateDataOffer(spt, self.getOverlayId()));
-            delegator.doTrigger(spt, timer);
-            dataOfferPeriodTimeoutId = spt.getTimeoutEvent().getTimeoutId();
+                if (tempDirPath == null) {
+                    try {
+                        File f;
+                        do {
+                            f = File.createTempFile("gvodSim", "");
+                        } while (!f.delete());
+                        f.mkdir();
+                        tempDirPath = f.getAbsolutePath();
+                        System.setProperty(tempDirProp, tempDirPath);
+                    } catch (IOException ex) {
+                        logger.info("Vod - simulations - error creating temp");
+                        throw new RuntimeException(ex);
+                    }
+                }
+                File peerDir = new File(tempDirPath + File.separator + "peer" + self.getId());
+                peerDir.mkdir();
 
-            File metaInfoFile = new File(torrentFileAddress);
+                if (seeder) {
+                    freeRider = false;
+                    buffering.set(false);
+                } else {
+                }
+//                if (init.isPlay()) {
+//                    play();
+//                }
+//                spt = new SchedulePeriodicTimeout(readingPeriod, readingPeriod);
+//                spt.setTimeoutEvent(new Read(spt));
+//                delegator.doTrigger(spt, timer);
+//                readTimerId = spt.getTimeoutEvent().getTimeoutId();
 
-            if (seeder) {
-                freeRider = false;
-                buffering.set(false);
-                try {
-                    if (simulation) {
-                        logger.debug(compName + "new storage");
-                        storage = new StorageSimu(videoName, length);
-                        storage.create(null);
-                        FileOutputStream fos = new FileOutputStream(torrentFileAddress);
-                        logger.debug(compName + "write .data");
-                        fos.write(storage.getMetaInfo().getData());
-                        fos.close();
-                    } else {
+            } else {
+                File metaInfoFile = new File(torrentFileAddress);
+
+                if (seeder) {
+                    freeRider = false;
+                    buffering.set(false);
+                    try {
                         MetaInfoExec metaInfo = null;
                         if (storage == null) {
                             FileInputStream in = new FileInputStream(metaInfoFile);
@@ -396,27 +421,22 @@ public final class Vod extends MsgRetryComponent {
 //                            delegator.doTrigger(new QuitCompleted(self.getId()), vod);
 //                            seeder = false;
                         }
+                        ActiveTorrents.makeSeeder(torrentFileAddress);
+                        rest.put(0, storage.needed());
+                        self.updateUtility(new UtilityVod(VodConfig.SEEDER_UTILITY_VALUE));
+                        UtilityVod utility = (UtilityVod) self.getUtility();
+                        bitTorrentSet.getStats().changeUtility(utility.getChunk(), utility,
+                                storage.getBitField().numberPieces(),
+                                storage.getBitField());
+                        logger.info(compName + storage.getBitField().getHumanReadable2());
+                    } catch (IOException e) {
+                        logger.error(compName + "problem while trying to initialize the seed: " + e.getMessage(), e);
+                        logger.error(compName + "Metafile: " + torrentFileAddress);
+                        return;
                     }
-                    ActiveTorrents.makeSeeder(torrentFileAddress);
-                    rest.put(0, storage.needed());
-                    self.updateUtility(new UtilityVod(VodConfig.SEEDER_UTILITY_VALUE));
-                    UtilityVod utility = (UtilityVod) self.getUtility();
-                    bitTorrentSet.getStats().changeUtility(utility.getChunk(), utility,
-                            storage.getBitField().numberPieces(),
-                            storage.getBitField());
-                    logger.info(compName + storage.getBitField().getHumanReadable2());
-                } catch (IOException e) {
-                    logger.error(compName + "problem while trying to initialize the seed: " + e.getMessage(), e);
-                    logger.error(compName + "Metafile: " + torrentFileAddress);
-                    return;
-                }
-            } else { // not a seeder
-                try {
-                    FileInputStream in = new FileInputStream(metaInfoFile);
-                    if (simulation) {
-                        MetaInfoSimu metaInfo = new MetaInfoSimu(in);
-                        storage = new StorageSimu(metaInfo);
-                    } else {
+                } else { // not a seeder
+                    try {
+                        FileInputStream in = new FileInputStream(metaInfoFile);
                         MetaInfoExec metaInfo = new MetaInfoExec(in, torrentFileAddress);
                         if (Vod.MEM_MAP_VOD_FILES) {
                             storage = new StorageMemMapWholeFile(metaInfo,
@@ -425,40 +445,32 @@ public final class Vod extends MsgRetryComponent {
                             storage = new StorageFcByteBuf(metaInfo,
                                     metaInfoFile.getParent(), false);
                         }
-                    }
-                    logger.info(compName + "check storage: " + storage.getMetaInfo().getName());
-                    storage.check(true);
-                    rest.put(0, storage.needed());
-                    UtilityVod myUtility = (UtilityVod) self.getUtility();
-                    myUtility.setChunk(storage.getBitField().setNextUncompletedChunk(myUtility.getChunk()));
-                    bitTorrentSet.getStats().changeUtility(myUtility.getChunk() - myUtility.getOffset(),
-                            myUtility, storage.getBitField().numberPieces(),
-                            storage.getBitField());
+                        logger.info(compName + "check storage: " + storage.getMetaInfo().getName());
+                        storage.check(true);
+                        rest.put(0, storage.needed());
+                        UtilityVod myUtility = (UtilityVod) self.getUtility();
+                        myUtility.setChunk(storage.getBitField().setNextUncompletedChunk(myUtility.getChunk()));
+                        bitTorrentSet.getStats().changeUtility(myUtility.getChunk() - myUtility.getOffset(),
+                                myUtility, storage.getBitField().numberPieces(),
+                                storage.getBitField());
 
-                    logger.trace(compName + "print infos");
-                    logger.info(compName + storage.getBitField().getHumanReadable2());
+                        logger.trace(compName + "print infos");
+                        logger.info(compName + storage.getBitField().getHumanReadable2());
 
-                } catch (Exception e) {
-                    logger.error(compName + "problem while initializing the torrent file in GVod: {} ", e);
-                    //TODO: Does it need to send a message to the upper layer?
+                    } catch (Exception e) {
+                        logger.error(compName + "problem while initializing the torrent file in GVod: {} ", e);
+                        //TODO: Does it need to send a message to the upper layer?
 //                    delegator.doTrigger(new QuitCompleted(self.getId(), metaInfoAddress), vod);
-                    throw new IllegalStateException("Could not create video file. Error: " + e.getMessage());
-                }
-                startedAtTime = System.currentTimeMillis();
-                stoppedReadingAtTime = startedAtTime;
-                if (simulation) {
-                    spt = new SchedulePeriodicTimeout(readingPeriod, readingPeriod);
-                    spt.setTimeoutEvent(new Read(spt));
-                    delegator.doTrigger(spt, timer);
-                    readTimerId = spt.getTimeoutEvent().getTimeoutId();
-                    if (init.isPlay()) {
-                        play();
+                        throw new IllegalStateException("Could not create video file. Error: " + e.getMessage());
                     }
+                    startedAtTime = System.currentTimeMillis();
+                    stoppedReadingAtTime = startedAtTime;
                 }
+
+                // update % in Swing GUI
+                ActiveTorrents.updatePercentage(videoName, storage.percent());
             }
 
-            // update % in Swing GUI
-            ActiveTorrents.updatePercentage(videoName, storage.percent());
         }
     };
 

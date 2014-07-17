@@ -20,19 +20,38 @@
  */
 package se.sics.gvod.config;
 
+import java.io.IOException;
+import java.net.InetAddress;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import se.sics.gvod.system.vod.VodConfiguration;
 
 /**
- * The
- * <code>Configuration</code> class.
+ * The <code>Configuration</code> class.
  *
  */
 public class VodCompositeConfiguration extends CompositeConfiguration {
 
     VodConfiguration vodConfiguration;
+    BootstrapConfiguration bootConfiguration;
+    CroupierConfiguration croupierConfiguration;
 
-    public VodCompositeConfiguration() {
-        vodConfiguration = VodConfiguration.build("topgear.mp4");
+    public VodCompositeConfiguration(String videoName) {
+        super();
+        try {
+            InetAddress ip = InetAddress.getLocalHost();
+            VodConfig.setIp(ip);
+            VodConfig.setBoostrapServerIp(ip);
+            bootConfiguration =
+                        new BootstrapConfiguration(ip.getHostAddress(),
+                        VodConfig.getBootstrapServerPort(),
+                        VodConfig.SYSTEM_OVERLAY_ID,
+                        4000, 2, 30 * 1000, 8764);
+            croupierConfiguration = CroupierConfiguration.build();
+            vodConfiguration = VodConfiguration.build(videoName);
+        } catch (IOException ex) {
+            throw new RuntimeException("bootstrap conf error");
+        }
 //                new VodConfiguration(
 //                5 /*shuffleLength*/,
 //                15 /*randomViewSize*/,
@@ -70,5 +89,4 @@ public class VodCompositeConfiguration extends CompositeConfiguration {
 //                8080 /*webserver port */,
 //                1400 /* MTU */);
     }
-    BootstrapConfiguration bootConfiguration = BootstrapConfiguration.build();
 }
