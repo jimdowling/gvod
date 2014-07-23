@@ -40,6 +40,8 @@
         <module>ls-video</module>
         <module>ls-system</module>
         <module>ls-ws</module>
+        <module>new_system</module>
+        <module>new_vod_simulator</module>
     </modules>
 
     <build>
