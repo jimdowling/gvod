@@ -27,7 +27,7 @@ import se.sics.gvod.system.main.GMain;
 
 /**
  * To make sure your videos are compatible, run one of these tools:
- * mp4creator (for m4v files)
+ * mp4creator (for mp4 files)
  * >mp4creator -optimize <filename>
  *
  * MP4Box moves metadata to start of file, and interleaves media in 0.5 second

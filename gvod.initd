@@ -1,0 +1,92 @@
+#!/bin/sh
+#
+# Startup script for namenode
+#
+### BEGIN INIT INFO
+# Provides:                     namenode-*
+# Required-Start:                 
+# Should-Start:                 
+# Required-Stop:                  
+# Default-Start:                2 3 4 5
+# Default-Stop:                 0 1 6
+# Short-Description:            start and stop namenode-*
+# Description:                  Start/Stop/Restart Namenode
+### END INIT INFO
+
+# Variables
+
+PID_FILE=/tmp/gvod.pid
+
+RETVAL=0
+
+EXEC_WITH_USER=
+
+start() {
+  $EXEC_WITH_USER nohup java -jar /var/lib/gvod/gvod.jar &2>1 > /var/log/gvod.log &
+  echo $! > "$PID_FILE"
+  return $?
+}
+
+stop() {
+  PID=`cat $PID_FILE`
+  kill $PID
+  if [ $? -ne 0 ] ; then
+     kill -9 $PID
+  fi
+  return $?
+}
+
+restart() {
+  stop()
+  start()
+  return $?
+}
+
+status() {
+  if [ -f $PID_FILE ] ; then
+     PID=`cat $PID_FILE`
+     kill -0 $PID
+     res=$?
+  else 
+     res=1
+  fi
+  if [ $res -eq 0 ] ; then
+   echo "gvod($PID) is running"
+  else
+   echo "gvod is not running"
+  fi
+  return $res
+}
+
+
+
+# user-supplied parameter to stop/start/restart process.
+case "$1" in
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  restart)
+    restart
+    ;;
+  reload)
+    restart
+    ;;
+  status)
+    status
+    ;;
+  -h|--help)
+    echo ""
+    echo "usage: <prog> start|stop|restart|status"
+    echo ""
+    exit 0
+    ;;
+  *)
+    echo $"Usage: <prog> {start|stop|restart|status}"
+    exit 1
+  esac
+
+
+exit $RETVAL

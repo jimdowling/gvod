@@ -144,9 +144,9 @@ public class Main {
                 //terminateAfterTerminationOf(1000, process2);
             }
         };
-        VodCompositeConfiguration configuration = new VodCompositeConfiguration();
+//        VodCompositeConfiguration configuration = new VodCompositeConfiguration();
 //        configuration.set(args[1], args[2], args[4]);
-        configuration.store();
+//        configuration.store();
 
         gvodScenario1.setSeed(seed);
 //        gvodScenario1.execute(GVodExecutionMain.class);
